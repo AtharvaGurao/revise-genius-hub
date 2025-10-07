@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,6 +7,7 @@ import { Upload, Search, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { supabase } from "@/integrations/supabase/client";
 
 interface PDF {
   id: string;
@@ -15,12 +16,6 @@ interface PDF {
   uploadedAt: Date;
 }
 
-// Mock sample PDFs - in production, these come from backend
-const samplePDFs: PDF[] = [
-  { id: "sample-1", title: "NCERT Physics Class XI - Chapter 1-5", pages: 120, uploadedAt: new Date() },
-  { id: "sample-2", title: "NCERT Physics Class XI - Chapter 6-10", pages: 115, uploadedAt: new Date() },
-  { id: "sample-3", title: "NCERT Chemistry Class XII - Organic", pages: 98, uploadedAt: new Date() },
-];
 
 interface SourceSelectorProps {
   selectedPdfId: string | null;
@@ -35,9 +30,41 @@ const SourceSelector = ({
   scope,
   onScopeChange,
 }: SourceSelectorProps) => {
-  const [pdfs, setPdfs] = useState<PDF[]>(samplePDFs);
+  const [pdfs, setPdfs] = useState<PDF[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+
+  useEffect(() => {
+    fetchPdfs();
+  }, []);
+
+  const fetchPdfs = async () => {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) return;
+
+      const { data, error } = await supabase
+        .from("pdfs")
+        .select("*")
+        .order("uploaded_at", { ascending: false });
+
+      if (error) throw error;
+
+      setPdfs(
+        data.map((pdf) => ({
+          id: pdf.id,
+          title: pdf.title,
+          pages: pdf.pages,
+          uploadedAt: new Date(pdf.uploaded_at),
+        }))
+      );
+    } catch (error) {
+      console.error("Error fetching PDFs:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -58,43 +85,60 @@ const SourceSelector = ({
     });
 
     try {
-      // In production:
-      // const formData = new FormData();
-      // formData.append('file', file);
-      // const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/pdf/upload`, {
-      //   method: 'POST',
-      //   body: formData
-      // });
-      // if (!response.ok) throw new Error('Upload failed');
-      // const data = await response.json();
-      // const newPdf: PDF = {
-      //   id: data.id,
-      //   title: data.title,
-      //   pages: data.pages,
-      //   uploadedAt: new Date(data.uploadedAt),
-      // };
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) {
+        toast({
+          title: "Authentication required",
+          description: "Please sign in to upload PDFs.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-      // Mock upload delay
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const userId = session.session.user.id;
+      const fileName = `${userId}/${Date.now()}-${file.name}`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from("pdfs")
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      // Create database record
+      const { data: pdfData, error: dbError } = await supabase
+        .from("pdfs")
+        .insert({
+          user_id: userId,
+          title: file.name.replace(".pdf", ""),
+          file_path: fileName,
+          pages: 0, // Will be updated after processing
+          file_size: file.size,
+        })
+        .select()
+        .single();
+
+      if (dbError) throw dbError;
 
       const newPdf: PDF = {
-        id: `pdf-${Date.now()}`,
-        title: file.name.replace(".pdf", ""),
-        pages: Math.floor(Math.random() * 200) + 50,
-        uploadedAt: new Date(),
+        id: pdfData.id,
+        title: pdfData.title,
+        pages: pdfData.pages,
+        uploadedAt: new Date(pdfData.uploaded_at),
       };
 
       setPdfs([newPdf, ...pdfs]);
-      onSelectPdf(newPdf.id); // Auto-select uploaded PDF
-      
+      onSelectPdf(newPdf.id);
+
       toast({
         title: "PDF uploaded successfully",
         description: `"${newPdf.title}" is now available in your library.`,
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Upload error:", error);
       toast({
         title: "Upload failed",
-        description: "Could not upload PDF. Please try again.",
+        description: error.message || "Could not upload PDF. Please try again.",
         variant: "destructive",
       });
     }
@@ -158,7 +202,11 @@ const SourceSelector = ({
       {/* PDF List */}
       <ScrollArea className="h-[300px] sm:h-[400px]">
         <div className="space-y-2">
-          {filteredPdfs.length === 0 ? (
+          {loading ? (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              Loading PDFs...
+            </p>
+          ) : filteredPdfs.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">
               No PDFs found. Upload one to get started!
             </p>

@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, Target } from "lucide-react";
@@ -10,39 +11,95 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-
-// In production, fetch from backend:
-// useEffect(() => {
-//   const fetchProgress = async () => {
-//     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/progress/summary`);
-//     const data = await response.json();
-//     setProgressData(data);
-//   };
-//   fetchProgress();
-// }, []);
-
-const mockProgressData = {
-  accuracyOverall: 75,
-  recentAttempts: [
-    { date: "Jan 10", accuracy: 65 },
-    { date: "Jan 12", accuracy: 72 },
-    { date: "Jan 14", accuracy: 80 },
-    { date: "Jan 15", accuracy: 75 },
-    { date: "Jan 17", accuracy: 78 },
-  ],
-  strengths: ["Kinematics", "Thermodynamics", "Wave Motion"],
-  weaknesses: ["Rotational Dynamics", "Modern Physics", "Optics"],
-  topicBreakdown: [
-    { topic: "Mechanics", accuracy: 82 },
-    { topic: "Thermodynamics", accuracy: 78 },
-    { topic: "Electromagnetism", accuracy: 68 },
-  ],
-  totalAttempts: 42,
-  averageScore: 75,
-};
+import { supabase } from "@/integrations/supabase/client";
 
 const ProgressMiniDashboard = () => {
-  const { accuracyOverall, recentAttempts, strengths, weaknesses, totalAttempts, averageScore } = mockProgressData;
+  const [progressData, setProgressData] = useState({
+    accuracyOverall: 0,
+    recentAttempts: [] as { date: string; accuracy: number }[],
+    strengths: [] as string[],
+    weaknesses: [] as string[],
+    totalAttempts: 0,
+    averageScore: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchProgress();
+  }, []);
+
+  const fetchProgress = async () => {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) {
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("quiz_attempts")
+        .select("*")
+        .eq("user_id", session.session.user.id)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const totalAttempts = data.length;
+        const totalScore = data.reduce(
+          (sum, attempt) => sum + (attempt.score / attempt.total_questions) * 100,
+          0
+        );
+        const averageScore = Math.round(totalScore / totalAttempts);
+
+        const recentAttempts = data.slice(0, 5).map((attempt) => ({
+          date: new Date(attempt.created_at).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          }),
+          accuracy: Math.round((attempt.score / attempt.total_questions) * 100),
+        })).reverse();
+
+        setProgressData({
+          accuracyOverall: averageScore,
+          recentAttempts,
+          strengths: ["Kinematics", "Thermodynamics"], // TODO: Analyze from questions
+          weaknesses: ["Modern Physics"], // TODO: Analyze from questions
+          totalAttempts,
+          averageScore,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching progress:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const { accuracyOverall, recentAttempts, strengths, weaknesses, totalAttempts, averageScore } = progressData;
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <p className="text-sm text-muted-foreground text-center">Loading progress...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (totalAttempts === 0) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <p className="text-sm text-muted-foreground text-center">
+            No quiz attempts yet. Start practicing to see your progress!
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-3 sm:space-y-4">

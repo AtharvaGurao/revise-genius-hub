@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Send, Plus, Bot, User, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Message {
   id: string;
@@ -47,12 +48,6 @@ const ChatUI = ({ selectedPdfId }: ChatUIProps) => {
   }, [currentChat.messages]);
 
   const handleNewChat = async () => {
-    // In production:
-    // const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/chat/new`, {
-    //   method: 'POST'
-    // });
-    // const data = await response.json();
-
     const newChat: Chat = {
       id: `chat-${Date.now()}`,
       title: "New Chat",
@@ -83,25 +78,32 @@ const ChatUI = ({ selectedPdfId }: ChatUIProps) => {
     setIsLoading(true);
 
     try {
-      // In production (streaming):
-      // const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/chat/send`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     chatId: currentChatId,
-      //     message: userMessage.content,
-      //     pdfIds: selectedPdfId ? [selectedPdfId] : undefined
-      //   })
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) {
+        toast({
+          title: "Authentication required",
+          description: "Please sign in to chat.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Save user message
+      await supabase.from("chat_messages").insert({
+        user_id: session.session.user.id,
+        conversation_id: currentChatId,
+        role: "user",
+        content: userMessage.content,
+      });
+
+      // TODO: Call RAG edge function
+      // const { data, error } = await supabase.functions.invoke('chat-rag', {
+      //   body: {
+      //     conversationId: currentChatId,
+      //     query: userMessage.content,
+      //     pdfId: selectedPdfId
+      //   }
       // });
-      // const reader = response.body?.getReader();
-      // const decoder = new TextDecoder();
-      // let accumulatedText = '';
-      // while (true) {
-      //   const { done, value } = await reader.read();
-      //   if (done) break;
-      //   accumulatedText += decoder.decode(value);
-      //   // Update message in real-time
-      // }
 
       // Mock AI response
       await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -117,6 +119,14 @@ const ChatUI = ({ selectedPdfId }: ChatUIProps) => {
         ],
       };
 
+      // Save assistant message
+      await supabase.from("chat_messages").insert({
+        user_id: session.session.user.id,
+        conversation_id: currentChatId,
+        role: "assistant",
+        content: assistantMessage.content,
+      });
+
       setChats((prev) =>
         prev.map((chat) =>
           chat.id === currentChatId
@@ -124,10 +134,11 @@ const ChatUI = ({ selectedPdfId }: ChatUIProps) => {
             : chat
         )
       );
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Chat error:", error);
       toast({
         title: "Message failed",
-        description: "Could not send message. Please try again.",
+        description: error.message || "Could not send message. Please try again.",
         variant: "destructive",
       });
     } finally {

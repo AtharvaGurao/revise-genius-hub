@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, CheckCircle, XCircle, RotateCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface QuizPanelProps {
   scope: "all" | "selected";
@@ -73,18 +74,25 @@ const QuizPanel = ({ scope, selectedPdfId }: QuizPanelProps) => {
     setUserAnswers({});
 
     try {
-      // In production, call backend:
-      // const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/quiz/generate`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) {
+        toast({
+          title: "Authentication required",
+          description: "Please sign in to generate quizzes.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // TODO: Call quiz generation edge function
+      // const { data, error } = await supabase.functions.invoke('generate-quiz', {
+      //   body: {
       //     pdfIds: scope === 'selected' ? [selectedPdfId] : undefined,
       //     scope,
       //     types: selectedTypes,
       //     count: questionCount
-      //   })
+      //   }
       // });
-      // const data = await response.json();
 
       // Mock generation delay
       await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -127,10 +135,11 @@ const QuizPanel = ({ scope, selectedPdfId }: QuizPanelProps) => {
         title: "Quiz generated!",
         description: `${questionCount} questions are ready.`,
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Quiz generation error:", error);
       toast({
         title: "Generation failed",
-        description: "Could not generate quiz. Please try again.",
+        description: error.message || "Could not generate quiz. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -147,21 +156,6 @@ const QuizPanel = ({ scope, selectedPdfId }: QuizPanelProps) => {
       });
       return;
     }
-
-    // In production:
-    // const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/quiz/submit`, {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({
-    //     quizId: 'current-quiz-id',
-    //     answers: Object.entries(userAnswers).map(([qId, answer]) => ({
-    //       questionId: qId,
-    //       choiceIndex: typeof answer === 'number' ? answer : undefined,
-    //       text: typeof answer === 'string' ? answer : undefined
-    //     }))
-    //   })
-    // });
-    // const data = await response.json();
 
     // Mock grading
     const mockResults: QuizResult[] = questions.map((q) => ({
@@ -180,6 +174,24 @@ const QuizPanel = ({ scope, selectedPdfId }: QuizPanelProps) => {
       total: totalCount,
       percent: Math.round((correctCount / totalCount) * 100),
     });
+
+    // Save to database
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (session.session) {
+        await supabase.from("quiz_attempts").insert({
+          user_id: session.session.user.id,
+          pdf_id: selectedPdfId || null,
+          quiz_type: selectedTypes.join(","),
+          score: correctCount,
+          total_questions: totalCount,
+          questions: questions as any,
+          answers: userAnswers as any,
+        } as any);
+      }
+    } catch (error) {
+      console.error("Error saving quiz attempt:", error);
+    }
 
     toast({
       title: "Quiz submitted!",

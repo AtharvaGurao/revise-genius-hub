@@ -14,7 +14,110 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      chat_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      pdfs: {
+        Row: {
+          file_path: string
+          file_size: number
+          id: string
+          pages: number
+          processed: boolean
+          title: string
+          uploaded_at: string
+          user_id: string
+        }
+        Insert: {
+          file_path: string
+          file_size?: number
+          id?: string
+          pages?: number
+          processed?: boolean
+          title: string
+          uploaded_at?: string
+          user_id: string
+        }
+        Update: {
+          file_path?: string
+          file_size?: number
+          id?: string
+          pages?: number
+          processed?: boolean
+          title?: string
+          uploaded_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      quiz_attempts: {
+        Row: {
+          answers: Json
+          created_at: string
+          id: string
+          pdf_id: string | null
+          questions: Json
+          quiz_type: string
+          score: number
+          total_questions: number
+          user_id: string
+        }
+        Insert: {
+          answers: Json
+          created_at?: string
+          id?: string
+          pdf_id?: string | null
+          questions: Json
+          quiz_type: string
+          score?: number
+          total_questions: number
+          user_id: string
+        }
+        Update: {
+          answers?: Json
+          created_at?: string
+          id?: string
+          pdf_id?: string | null
+          questions?: Json
+          quiz_type?: string
+          score?: number
+          total_questions?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_attempts_pdf_id_fkey"
+            columns: ["pdf_id"]
+            isOneToOne: false
+            referencedRelation: "pdfs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
