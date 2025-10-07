@@ -84,53 +84,27 @@ const QuizPanel = ({ scope, selectedPdfId }: QuizPanelProps) => {
         return;
       }
 
-      // TODO: Call quiz generation edge function
-      // const { data, error } = await supabase.functions.invoke('generate-quiz', {
-      //   body: {
-      //     pdfIds: scope === 'selected' ? [selectedPdfId] : undefined,
-      //     scope,
-      //     types: selectedTypes,
-      //     count: questionCount
-      //   }
-      // });
-
-      // Mock generation delay
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      const mockQuestions: Question[] = Array.from({ length: questionCount }, (_, i) => {
-        const type = selectedTypes[i % selectedTypes.length];
-        if (type === "MCQ") {
-          return {
-            id: `q-${i}`,
-            type: "MCQ",
-            question: `What is Newton's ${i + 1}st law of motion?`,
-            choices: [
-              "An object at rest stays at rest",
-              "F = ma",
-              "For every action, there is an equal and opposite reaction",
-              "Energy cannot be created or destroyed",
-            ],
-            answerKey: 0,
-            explanation: "This is the correct answer because of inertia principles.",
-          };
-        } else if (type === "SAQ") {
-          return {
-            id: `q-${i}`,
-            type: "SAQ",
-            question: `Define velocity and explain its relationship to acceleration.`,
-            explanation: "Velocity is the rate of change of displacement. Acceleration is the rate of change of velocity.",
-          };
-        } else {
-          return {
-            id: `q-${i}`,
-            type: "LAQ",
-            question: `Derive the equations of motion for a uniformly accelerated body and discuss their applications.`,
-            explanation: "The three equations of motion can be derived using calculus and graphical methods...",
-          };
+      // Call quiz generation edge function
+      const { data, error } = await supabase.functions.invoke('generate-quiz', {
+        body: {
+          pdfIds: scope === 'selected' && selectedPdfId ? [selectedPdfId] : undefined,
+          scope,
+          types: selectedTypes,
+          count: questionCount
         }
       });
 
-      setQuestions(mockQuestions);
+      if (error) {
+        console.error('Quiz generation error:', error);
+        throw new Error(error.message || 'Failed to generate quiz');
+      }
+
+      if (!data || !data.questions || data.questions.length === 0) {
+        throw new Error('No questions were generated');
+      }
+
+      console.log('Generated questions:', data.questions);
+      setQuestions(data.questions);
       toast({
         title: "Quiz generated!",
         description: `${questionCount} questions are ready.`,

@@ -96,44 +96,117 @@ const ChatUI = ({ selectedPdfId }: ChatUIProps) => {
         content: userMessage.content,
       });
 
-      // TODO: Call RAG edge function
-      // const { data, error } = await supabase.functions.invoke('chat-rag', {
-      //   body: {
-      //     conversationId: currentChatId,
-      //     query: userMessage.content,
-      //     pdfId: selectedPdfId
-      //   }
-      // });
-
-      // Mock AI response
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      const assistantMessage: Message = {
-        id: `msg-${Date.now()}`,
-        role: "assistant",
-        content:
-          "Based on your question, I can explain that concept from your NCERT textbook. Newton's laws form the foundation of classical mechanics. Would you like me to elaborate on any specific law?",
-        citations: [
-          { page: 42, snippet: "Newton's first law states that..." },
-          { page: 45, snippet: "The second law provides a quantitative measure..." },
-        ],
-      };
-
-      // Save assistant message
-      await supabase.from("chat_messages").insert({
-        user_id: session.session.user.id,
-        conversation_id: currentChatId,
-        role: "assistant",
-        content: assistantMessage.content,
+      // Call RAG edge function with streaming
+      const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-rag`;
+      
+      const response = await fetch(CHAT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.session.access_token}`,
+        },
+        body: JSON.stringify({
+          conversationId: currentChatId,
+          query: userMessage.content,
+          pdfId: selectedPdfId
+        })
       });
 
-      setChats((prev) =>
-        prev.map((chat) =>
-          chat.id === currentChatId
-            ? { ...chat, messages: [...chat.messages, assistantMessage] }
-            : chat
-        )
-      );
+      if (!response.ok || !response.body) {
+        if (response.status === 429) {
+          toast({
+            title: "Rate limit exceeded",
+            description: "Too many requests. Please try again later.",
+            variant: "destructive",
+          });
+          return;
+        }
+        if (response.status === 402) {
+          toast({
+            title: "AI credits exhausted",
+            description: "Please add credits to continue using AI features.",
+            variant: "destructive",
+          });
+          return;
+        }
+        throw new Error('Failed to start chat stream');
+      }
+
+      // Stream the response
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedText = '';
+      let assistantMessageId = `msg-${Date.now()}`;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices?.[0]?.delta?.content;
+              
+              if (content) {
+                accumulatedText += content;
+                
+                // Update assistant message in real-time
+                setChats((prev) =>
+                  prev.map((chat) => {
+                    if (chat.id !== currentChatId) return chat;
+                    
+                    const lastMsg = chat.messages[chat.messages.length - 1];
+                    if (lastMsg?.role === 'assistant' && lastMsg.id === assistantMessageId) {
+                      // Update existing message
+                      return {
+                        ...chat,
+                        messages: chat.messages.map(msg =>
+                          msg.id === assistantMessageId
+                            ? { ...msg, content: accumulatedText }
+                            : msg
+                        )
+                      };
+                    } else {
+                      // Create new assistant message
+                      return {
+                        ...chat,
+                        messages: [
+                          ...chat.messages,
+                          {
+                            id: assistantMessageId,
+                            role: 'assistant',
+                            content: accumulatedText,
+                            citations: []
+                          }
+                        ]
+                      };
+                    }
+                  })
+                );
+              }
+            } catch (e) {
+              // Ignore JSON parse errors for incomplete chunks
+            }
+          }
+        }
+      }
+
+      // Save final assistant message
+      if (accumulatedText) {
+        await supabase.from("chat_messages").insert({
+          user_id: session.session.user.id,
+          conversation_id: currentChatId,
+          role: "assistant",
+          content: accumulatedText,
+        });
+      }
     } catch (error: any) {
       console.error("Chat error:", error);
       toast({
