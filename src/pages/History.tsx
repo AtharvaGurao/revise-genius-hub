@@ -10,10 +10,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Eye } from "lucide-react";
+import { ArrowLeft, Eye } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
-import Navbar from "@/components/Navbar";
 
 // Mock data - will be replaced with API calls
 const mockAttempts = [
@@ -54,7 +53,24 @@ const History = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
+      <header className="border-b bg-card">
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <Button variant="ghost" size="icon" asChild className="flex-shrink-0">
+              <Link to="/app">
+                <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+              </Link>
+            </Button>
+            <h1 className="font-heading font-bold text-lg sm:text-xl md:text-2xl truncate">Quiz History</h1>
+          </div>
+          <Button asChild size="sm" className="flex-shrink-0">
+            <Link to="/app">
+              <span className="hidden sm:inline">New Quiz</span>
+              <span className="sm:hidden">New</span>
+            </Link>
+          </Button>
+        </div>
+      </header>
 
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
         <Card className="overflow-hidden">
