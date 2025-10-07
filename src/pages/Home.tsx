@@ -1,8 +1,24 @@
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { BookOpen, Brain, TrendingUp, MessageCircle } from "lucide-react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 const Home = () => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        navigate("/app");
+      }
+    };
+
+    checkAuth();
+  }, [navigate]);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
