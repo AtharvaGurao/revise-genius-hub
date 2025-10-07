@@ -25,7 +25,7 @@ const Home = () => {
                 size="lg"
                 className="bg-accent hover:bg-accent-hover text-accent-foreground font-semibold text-base sm:text-lg px-6 sm:px-8 py-5 sm:py-6 shadow-xl"
               >
-                <Link to="/app">Start Revising</Link>
+                <Link to="/auth">Start Revising</Link>
               </Button>
               <Button
                 asChild
@@ -33,7 +33,7 @@ const Home = () => {
                 variant="outline"
                 className="bg-white/10 hover:bg-white/20 text-white border-white/30 font-semibold text-base sm:text-lg px-6 sm:px-8 py-5 sm:py-6 backdrop-blur-sm"
               >
-                <Link to="/history">View Progress</Link>
+                <Link to="/auth">View Progress</Link>
               </Button>
             </div>
           </div>
@@ -97,7 +97,7 @@ const Home = () => {
             size="lg"
             className="bg-primary hover:bg-primary-hover text-primary-foreground font-semibold text-base sm:text-lg px-6 sm:px-8 py-5 sm:py-6"
           >
-            <Link to="/app">Get Started Now</Link>
+            <Link to="/auth">Get Started Now</Link>
           </Button>
         </div>
       </section>
