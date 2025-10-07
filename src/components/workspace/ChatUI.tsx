@@ -83,7 +83,7 @@ const ChatUI = ({ selectedPdfId }: ChatUIProps) => {
     setIsLoading(true);
 
     try {
-      // In production:
+      // In production (streaming):
       // const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/chat/send`, {
       //   method: 'POST',
       //   headers: { 'Content-Type': 'application/json' },
@@ -93,7 +93,15 @@ const ChatUI = ({ selectedPdfId }: ChatUIProps) => {
       //     pdfIds: selectedPdfId ? [selectedPdfId] : undefined
       //   })
       // });
-      // const data = await response.json();
+      // const reader = response.body?.getReader();
+      // const decoder = new TextDecoder();
+      // let accumulatedText = '';
+      // while (true) {
+      //   const { done, value } = await reader.read();
+      //   if (done) break;
+      //   accumulatedText += decoder.decode(value);
+      //   // Update message in real-time
+      // }
 
       // Mock AI response
       await new Promise((resolve) => setTimeout(resolve, 1500));

@@ -11,7 +11,16 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-// Mock data - in production from backend GET /progress/summary
+// In production, fetch from backend:
+// useEffect(() => {
+//   const fetchProgress = async () => {
+//     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/progress/summary`);
+//     const data = await response.json();
+//     setProgressData(data);
+//   };
+//   fetchProgress();
+// }, []);
+
 const mockProgressData = {
   accuracyOverall: 75,
   recentAttempts: [
@@ -19,6 +28,7 @@ const mockProgressData = {
     { date: "Jan 12", accuracy: 72 },
     { date: "Jan 14", accuracy: 80 },
     { date: "Jan 15", accuracy: 75 },
+    { date: "Jan 17", accuracy: 78 },
   ],
   strengths: ["Kinematics", "Thermodynamics", "Wave Motion"],
   weaknesses: ["Rotational Dynamics", "Modern Physics", "Optics"],
@@ -27,13 +37,39 @@ const mockProgressData = {
     { topic: "Thermodynamics", accuracy: 78 },
     { topic: "Electromagnetism", accuracy: 68 },
   ],
+  totalAttempts: 42,
+  averageScore: 75,
 };
 
 const ProgressMiniDashboard = () => {
-  const { accuracyOverall, recentAttempts, strengths, weaknesses } = mockProgressData;
+  const { accuracyOverall, recentAttempts, strengths, weaknesses, totalAttempts, averageScore } = mockProgressData;
 
   return (
     <div className="space-y-4">
+      {/* Stats Overview */}
+      <div className="grid grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground">
+              Total Attempts
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalAttempts}</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground">
+              Avg. Score
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-primary">{averageScore}%</div>
+          </CardContent>
+        </Card>
+      </div>
       {/* Overall Accuracy */}
       <Card>
         <CardHeader className="pb-3">

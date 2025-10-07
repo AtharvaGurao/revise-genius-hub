@@ -16,7 +16,28 @@ interface PdfViewerProps {
 const PdfViewer = ({ pdfId }: PdfViewerProps) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [zoom, setZoom] = useState(100);
-  const [totalPages] = useState(120); // Mock - in production from PDF metadata
+  const [totalPages, setTotalPages] = useState(120);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // In production, fetch PDF metadata and URL when pdfId changes
+  // useEffect(() => {
+  //   if (!pdfId) return;
+  //   const fetchPdfData = async () => {
+  //     setIsLoading(true);
+  //     try {
+  //       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/pdf/${pdfId}`);
+  //       const data = await response.json();
+  //       setPdfUrl(data.url);
+  //       setTotalPages(data.pages);
+  //     } catch (error) {
+  //       console.error('Failed to load PDF:', error);
+  //     } finally {
+  //       setIsLoading(false);
+  //     }
+  //   };
+  //   fetchPdfData();
+  // }, [pdfId]);
 
   const handlePrevPage = () => {
     if (currentPage > 1) setCurrentPage(currentPage - 1);
@@ -117,23 +138,56 @@ const PdfViewer = ({ pdfId }: PdfViewerProps) => {
             minHeight: "800px",
           }}
         >
-          {/* In production, render actual PDF using react-pdf or pdf.js */}
+          {/* 
+            In production, render actual PDF using react-pdf or pdf.js:
+            
+            import { Document, Page } from 'react-pdf';
+            
+            <Document file={pdfUrl} onLoadSuccess={({ numPages }) => setTotalPages(numPages)}>
+              <Page pageNumber={currentPage} scale={zoom / 100} />
+            </Document>
+          */}
           <div className="p-8 space-y-4 text-gray-800">
-            <h2 className="text-2xl font-bold">Sample PDF Content - Page {currentPage}</h2>
-            <p className="text-gray-600 italic">
-              This is a placeholder for PDF rendering. In production, integrate with your
-              backend's PDF URL to display actual content using libraries like react-pdf.
-            </p>
-            <div className="space-y-3 mt-6">
+            <div className="flex items-center justify-between border-b pb-4">
+              <h2 className="text-2xl font-bold">NCERT Physics Class XI</h2>
+              <span className="text-sm text-gray-500">Page {currentPage} of {totalPages}</span>
+            </div>
+            
+            <div className="bg-blue-50 border-l-4 border-blue-500 p-4">
+              <p className="text-sm text-blue-800">
+                <strong>Note:</strong> This is a placeholder PDF viewer. In production, this will render actual PDF content from <code className="bg-blue-100 px-2 py-0.5 rounded">{`\${VITE_API_BASE_URL}/pdf/${pdfId}`}</code>
+              </p>
+            </div>
+
+            <h3 className="text-xl font-semibold mt-6">Chapter 3: Motion in a Straight Line</h3>
+            
+            <div className="space-y-4">
               <p className="leading-relaxed">
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod
-                tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam,
-                quis nostrud exercitation ullamco laboris.
+                <strong>3.1 Introduction</strong>
               </p>
               <p className="leading-relaxed">
-                Duis aute irure dolor in reprehenderit in voluptate velit esse cillum
-                dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non
-                proident.
+                Motion is one of the most fundamental concepts in physics. When we describe the motion of an object, we specify how its position changes with time. The simplest case of motion is that of a particle moving along a straight line.
+              </p>
+              
+              <p className="leading-relaxed">
+                <strong>3.2 Position and Displacement</strong>
+              </p>
+              <p className="leading-relaxed">
+                To describe motion, we need to specify the position of the object. Position is the location of the particle with respect to a chosen reference point, considered to be the origin of the coordinate system.
+              </p>
+
+              <div className="bg-gray-100 p-4 rounded-lg my-4">
+                <p className="font-semibold mb-2">Key Concepts:</p>
+                <ul className="list-disc list-inside space-y-1 text-sm">
+                  <li>Displacement is a vector quantity</li>
+                  <li>Distance is a scalar quantity</li>
+                  <li>Velocity = Displacement / Time</li>
+                  <li>Speed = Distance / Time</li>
+                </ul>
+              </div>
+
+              <p className="leading-relaxed">
+                The displacement of a particle is the change in its position. If a particle moves from position x₁ to position x₂, its displacement Δx is given by: Δx = x₂ - x₁
               </p>
             </div>
           </div>

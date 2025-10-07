@@ -52,27 +52,52 @@ const SourceSelector = ({
       return;
     }
 
-    // In production, this would call:
-    // const formData = new FormData();
-    // formData.append('file', file);
-    // const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/pdf/upload`, {
-    //   method: 'POST',
-    //   body: formData
-    // });
-    // const data = await response.json();
-
-    const newPdf: PDF = {
-      id: `pdf-${Date.now()}`,
-      title: file.name.replace(".pdf", ""),
-      pages: Math.floor(Math.random() * 200) + 50, // Mock
-      uploadedAt: new Date(),
-    };
-
-    setPdfs([newPdf, ...pdfs]);
     toast({
-      title: "PDF uploaded successfully",
-      description: `"${newPdf.title}" is now available in your library.`,
+      title: "Uploading PDF...",
+      description: "Please wait while we process your file.",
     });
+
+    try {
+      // In production:
+      // const formData = new FormData();
+      // formData.append('file', file);
+      // const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/pdf/upload`, {
+      //   method: 'POST',
+      //   body: formData
+      // });
+      // if (!response.ok) throw new Error('Upload failed');
+      // const data = await response.json();
+      // const newPdf: PDF = {
+      //   id: data.id,
+      //   title: data.title,
+      //   pages: data.pages,
+      //   uploadedAt: new Date(data.uploadedAt),
+      // };
+
+      // Mock upload delay
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      const newPdf: PDF = {
+        id: `pdf-${Date.now()}`,
+        title: file.name.replace(".pdf", ""),
+        pages: Math.floor(Math.random() * 200) + 50,
+        uploadedAt: new Date(),
+      };
+
+      setPdfs([newPdf, ...pdfs]);
+      onSelectPdf(newPdf.id); // Auto-select uploaded PDF
+      
+      toast({
+        title: "PDF uploaded successfully",
+        description: `"${newPdf.title}" is now available in your library.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Upload failed",
+        description: "Could not upload PDF. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const filteredPdfs = pdfs.filter((pdf) =>

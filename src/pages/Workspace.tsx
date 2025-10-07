@@ -9,6 +9,7 @@ import PdfViewer from "@/components/workspace/PdfViewer";
 import QuizPanel from "@/components/workspace/QuizPanel";
 import ChatUI from "@/components/workspace/ChatUI";
 import ProgressMiniDashboard from "@/components/workspace/ProgressMiniDashboard";
+import YouTubeRecommender from "@/components/workspace/YouTubeRecommender";
 
 const Workspace = () => {
   const [selectedPdfId, setSelectedPdfId] = useState<string | null>(null);
@@ -106,14 +107,28 @@ const Workspace = () => {
           </Tabs>
         </main>
 
-        {/* Right Sidebar - Progress Dashboard (Desktop) */}
+        {/* Right Sidebar - Progress Dashboard & YouTube Recommender (Desktop) */}
         <aside className="hidden xl:block w-96 border-l bg-card overflow-y-auto">
-          <div className="p-4 border-b">
-            <h2 className="font-heading font-semibold">Your Progress</h2>
-          </div>
-          <div className="p-4">
-            <ProgressMiniDashboard />
-          </div>
+          <Tabs defaultValue="progress" className="h-full flex flex-col">
+            <div className="border-b bg-card px-4">
+              <TabsList className="h-12 bg-transparent w-full justify-start">
+                <TabsTrigger value="progress" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  Progress
+                </TabsTrigger>
+                <TabsTrigger value="videos" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  Videos
+                </TabsTrigger>
+              </TabsList>
+            </div>
+            
+            <TabsContent value="progress" className="flex-1 m-0 p-4">
+              <ProgressMiniDashboard />
+            </TabsContent>
+            
+            <TabsContent value="videos" className="flex-1 m-0 p-0">
+              <YouTubeRecommender selectedPdfId={selectedPdfId} scope={scope} />
+            </TabsContent>
+          </Tabs>
         </aside>
       </div>
     </div>
