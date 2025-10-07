@@ -54,7 +54,9 @@ const PdfViewer = ({ pdfId }: PdfViewerProps) => {
 
         if (urlError) throw urlError;
 
-        setPdfUrl(urlData.signedUrl);
+        // Construct full URL by prepending Supabase URL to the signed path
+        const fullPdfUrl = `${import.meta.env.VITE_SUPABASE_URL}${urlData.signedUrl}`;
+        setPdfUrl(fullPdfUrl);
       } catch (error: any) {
         console.error('Failed to load PDF:', error);
         toast({
