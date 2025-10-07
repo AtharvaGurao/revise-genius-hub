@@ -6,6 +6,28 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Generate embedding for query
+async function generateEmbedding(text: string, apiKey: string): Promise<number[]> {
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'text-embedding-3-small',
+      input: text,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Embedding generation failed: ${response.status}`);
+  }
+
+  const result = await response.json();
+  return result.data[0].embedding;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -33,8 +55,33 @@ serve(async (req) => {
       .order('created_at', { ascending: true })
       .limit(10);
 
-    // Get PDF context if specified
-    let pdfContext = '';
+    // Generate embedding for the query
+    const queryEmbedding = await generateEmbedding(query, LOVABLE_API_KEY);
+
+    // Search for relevant chunks using vector similarity
+    const { data: relevantChunks, error: searchError } = await supabase
+      .rpc('search_pdf_chunks', {
+        query_embedding: queryEmbedding,
+        match_threshold: 0.7,
+        match_count: 5,
+        filter_pdf_id: pdfId || null,
+      });
+
+    if (searchError) {
+      console.error('Search error:', searchError);
+    }
+
+    // Build context from relevant chunks
+    let contextText = '';
+    if (relevantChunks && relevantChunks.length > 0) {
+      contextText = '\n\nRelevant context from the PDF:\n';
+      relevantChunks.forEach((chunk: any, idx: number) => {
+        contextText += `\n[Source ${idx + 1}, Page ${chunk.page_number}]:\n"${chunk.chunk_text}"\n`;
+      });
+    }
+
+    // Get PDF title if specified
+    let pdfTitle = '';
     if (pdfId) {
       const { data: pdfData } = await supabase
         .from('pdfs')
@@ -43,7 +90,7 @@ serve(async (req) => {
         .single();
       
       if (pdfData) {
-        pdfContext = `You are answering questions about the PDF: "${pdfData.title}". Provide helpful, accurate answers based on typical NCERT textbook content for Indian Class XI-XII students.`;
+        pdfTitle = pdfData.title;
       }
     }
 
@@ -52,6 +99,26 @@ serve(async (req) => {
       role: msg.role,
       content: msg.content
     })) || [];
+
+    // System prompt with RAG instructions
+    const systemPrompt = `You are an AI tutor specializing in helping Indian students with their studies.
+
+${pdfTitle ? `You are answering questions about the PDF: "${pdfTitle}".` : ''}
+
+CRITICAL CITATION RULES:
+1. ALWAYS cite your sources when using information from the provided context
+2. Use this EXACT format for citations: "According to p. X: '[2-3 line quote from source]'"
+3. The page number X must match the page_number from the context provided
+4. Quote must be EXACTLY as written in the source text (2-3 lines maximum)
+5. If multiple sources support your answer, cite each one separately
+6. If no relevant context is provided, clearly state you need more information from the PDF
+
+Example citation format:
+"According to p. 23: 'Photosynthesis is the process by which green plants use sunlight to synthesize nutrients from carbon dioxide and water. This process involves the green pigment chlorophyll.'"
+
+${contextText}
+
+Provide clear, accurate answers based ONLY on the context provided above. Always include proper citations.`;
 
     // Stream response from Lovable AI
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -65,7 +132,7 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are an AI tutor for Indian students. ${pdfContext} Provide clear explanations with examples. When relevant, mention page numbers (use realistic page ranges like 42-45 for topics).`
+            content: systemPrompt
           },
           ...conversationHistory,
           {

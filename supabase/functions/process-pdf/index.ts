@@ -6,6 +6,50 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Chunk text into smaller pieces with page tracking
+function chunkText(text: string, pageNumber: number, chunkSize = 500): Array<{text: string, page: number}> {
+  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+  const chunks: Array<{text: string, page: number}> = [];
+  let currentChunk = '';
+  
+  for (const sentence of sentences) {
+    if ((currentChunk + sentence).length > chunkSize && currentChunk) {
+      chunks.push({ text: currentChunk.trim(), page: pageNumber });
+      currentChunk = sentence;
+    } else {
+      currentChunk += sentence;
+    }
+  }
+  
+  if (currentChunk) {
+    chunks.push({ text: currentChunk.trim(), page: pageNumber });
+  }
+  
+  return chunks;
+}
+
+// Generate embedding using Lovable AI
+async function generateEmbedding(text: string, apiKey: string): Promise<number[]> {
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'text-embedding-3-small',
+      input: text,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Embedding generation failed: ${response.status}`);
+  }
+
+  const result = await response.json();
+  return result.data[0].embedding;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -18,6 +62,9 @@ serve(async (req) => {
       throw new Error('PDF ID is required');
     }
 
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -29,23 +76,24 @@ serve(async (req) => {
       .eq('id', pdfId)
       .single();
 
-    if (pdfError) throw pdfError;
+    if (pdfError || !pdfData) {
+      throw new Error('PDF not found');
+    }
 
     // Download PDF from storage
-    const { data: fileData, error: fileError } = await supabase.storage
+    const { data: fileData, error: downloadError } = await supabase.storage
       .from('pdfs')
       .download(pdfData.file_path);
 
-    if (fileError) throw fileError;
+    if (downloadError || !fileData) {
+      throw new Error('Failed to download PDF');
+    }
 
-    // Convert PDF to text using Lovable AI for extraction
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
+    // Convert to base64
+    const buffer = await fileData.arrayBuffer();
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
 
-    const arrayBuffer = await fileData.arrayBuffer();
-    const base64Pdf = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-
-    // Use AI to analyze PDF structure and extract key information
+    // Send to Lovable AI to extract text with page numbers
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -56,12 +104,19 @@ serve(async (req) => {
         model: 'google/gemini-2.5-flash',
         messages: [
           {
-            role: 'system',
-            content: 'You are a PDF content analyzer. Extract key topics, chapters, and important concepts from educational PDFs. Return a structured summary.'
-          },
-          {
             role: 'user',
-            content: `Analyze this PDF and extract: 1) Total page count estimate, 2) Main topics/chapters, 3) Key concepts. PDF title: ${pdfData.title}`
+            content: [
+              {
+                type: 'text',
+                text: `Extract ALL text content from this PDF. For each page, format as: "PAGE X: [content]". Be thorough and extract everything.`
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:application/pdf;base64,${base64}`
+                }
+              }
+            ]
           }
         ],
       }),
@@ -69,44 +124,80 @@ serve(async (req) => {
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error('AI Gateway error:', aiResponse.status, errorText);
+      console.error('AI API error:', errorText);
       throw new Error(`AI processing failed: ${aiResponse.status}`);
     }
 
     const aiResult = await aiResponse.json();
-    const analysis = aiResult.choices[0].message.content;
+    const extractedText = aiResult.choices[0].message.content;
 
-    // Update PDF record as processed
+    // Parse text by pages
+    const pageRegex = /PAGE (\d+):([\s\S]*?)(?=PAGE \d+:|$)/gi;
+    const matches = [...extractedText.matchAll(pageRegex)];
+    
+    let allChunks: Array<{text: string, page: number, index: number}> = [];
+    let chunkIndex = 0;
+
+    for (const match of matches) {
+      const pageNum = parseInt(match[1]);
+      const pageText = match[2].trim();
+      
+      if (pageText) {
+        const chunks = chunkText(pageText, pageNum);
+        allChunks.push(...chunks.map(c => ({ ...c, index: chunkIndex++ })));
+      }
+    }
+
+    console.log(`Created ${allChunks.length} chunks from ${matches.length} pages`);
+
+    // Generate embeddings and store chunks
+    for (const chunk of allChunks) {
+      const embedding = await generateEmbedding(chunk.text, LOVABLE_API_KEY);
+      
+      const { error: insertError } = await supabase
+        .from('pdf_chunks')
+        .insert({
+          pdf_id: pdfId,
+          user_id: pdfData.user_id,
+          chunk_text: chunk.text,
+          page_number: chunk.page,
+          chunk_index: chunk.index,
+          embedding,
+        });
+
+      if (insertError) {
+        console.error('Failed to insert chunk:', insertError);
+      }
+    }
+
+    // Mark as processed
     const { error: updateError } = await supabase
       .from('pdfs')
-      .update({
-        processed: true,
-        pages: pdfData.pages || 100, // Estimate from AI or default
-      })
+      .update({ processed: true })
       .eq('id', pdfId);
 
-    if (updateError) throw updateError;
-
-    console.log('PDF processed successfully:', pdfId);
+    if (updateError) {
+      console.error('Failed to update PDF status:', updateError);
+    }
 
     return new Response(
-      JSON.stringify({
+      JSON.stringify({ 
         success: true,
-        pdfId,
-        analysis,
-        message: 'PDF processed and ready for quizzes and chat'
+        chunksCreated: allChunks.length,
+        message: 'PDF processed and embedded successfully'
       }),
-      {
+      { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200 
       }
     );
   } catch (error: any) {
     console.error('Process PDF error:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      {
-        status: 500,
+      { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500 
       }
     );
   }
