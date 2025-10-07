@@ -54,8 +54,11 @@ const PdfViewer = ({ pdfId }: PdfViewerProps) => {
 
         if (urlError) throw urlError;
 
-        // Construct full URL with storage path
-        const fullPdfUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1${urlData.signedUrl}`;
+        // Use absolute URL if returned, otherwise prefix with storage path
+        const signed = urlData.signedUrl;
+        const fullPdfUrl = signed.startsWith('http')
+          ? signed
+          : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1${signed}`;
         setPdfUrl(fullPdfUrl);
       } catch (error: any) {
         console.error('Failed to load PDF:', error);
