@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { ExternalLink, Play, Loader2, Youtube } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface VideoRecommendation {
   videoId: string;
@@ -32,61 +33,41 @@ const YouTubeRecommender = ({ selectedPdfId, scope }: YouTubeRecommenderProps) =
   const fetchRecommendations = async () => {
     setIsLoading(true);
     try {
-      // In production, call backend:
-      // const pdfQuery = scope === 'selected' && selectedPdfId 
-      //   ? `?pdfIds=${selectedPdfId}` 
-      //   : '';
-      // const response = await fetch(
-      //   `${import.meta.env.VITE_API_BASE_URL}/youtube/recs${pdfQuery}`
-      // );
-      // const data = await response.json();
-      // setVideos(data.items);
-
-      // Mock recommendations
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const { data: { session } } = await supabase.auth.getSession();
       
-      const mockVideos: VideoRecommendation[] = [
-        {
-          videoId: "dQw4w9WgXcQ",
-          title: "Newton's Laws of Motion - Complete Explanation for Class 11 Physics",
-          thumbnail: "https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg",
-          channel: "Physics Wallah",
-          duration: "45:20",
-          views: "2.3M views",
-        },
-        {
-          videoId: "abc123xyz",
-          title: "Thermodynamics Chapter 1-5 | NCERT Class XI Physics",
-          thumbnail: "https://img.youtube.com/vi/abc123xyz/mqdefault.jpg",
-          channel: "Vedantu JEE",
-          duration: "1:12:35",
-          views: "1.8M views",
-        },
-        {
-          videoId: "def456uvw",
-          title: "Kinematics Problem Solving Techniques | IIT JEE Preparation",
-          thumbnail: "https://img.youtube.com/vi/def456uvw/mqdefault.jpg",
-          channel: "Unacademy Atoms",
-          duration: "28:15",
-          views: "950K views",
-        },
-        {
-          videoId: "ghi789rst",
-          title: "Wave Motion and Sound - Full Chapter Revision",
-          thumbnail: "https://img.youtube.com/vi/ghi789rst/mqdefault.jpg",
-          channel: "Khan Academy India",
-          duration: "52:40",
-          views: "1.2M views",
-        },
-      ];
+      if (!session) {
+        console.error('No active session');
+        setVideos([]);
+        return;
+      }
 
-      setVideos(mockVideos);
+      const pdfIds = selectedPdfId ? [selectedPdfId] : [];
+      
+      const { data, error } = await supabase.functions.invoke('youtube-recommendations', {
+        body: { 
+          pdfIds,
+          scope 
+        },
+      });
+
+      if (error) {
+        console.error('Error fetching recommendations:', error);
+        throw error;
+      }
+
+      if (data?.videos) {
+        setVideos(data.videos);
+      } else {
+        setVideos([]);
+      }
     } catch (error) {
+      console.error('Error in fetchRecommendations:', error);
       toast({
         title: "Failed to load recommendations",
         description: "Could not fetch video recommendations. Please try again.",
         variant: "destructive",
       });
+      setVideos([]);
     } finally {
       setIsLoading(false);
     }
