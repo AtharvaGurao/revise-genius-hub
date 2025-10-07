@@ -39,10 +39,13 @@ async function generateEmbedding(text: string, apiKey: string): Promise<number[]
     body: JSON.stringify({
       model: 'text-embedding-3-small',
       input: text,
+      dimensions: 768, // Match database vector dimension
     }),
   });
 
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Embedding generation failed:', response.status, errorText);
     throw new Error(`Embedding generation failed: ${response.status}`);
   }
 

@@ -8,6 +8,8 @@ const corsHeaders = {
 
 // Generate embedding for query
 async function generateEmbedding(text: string, apiKey: string): Promise<number[]> {
+  console.log('Generating embedding for query...');
+  
   const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
     method: 'POST',
     headers: {
@@ -17,14 +19,18 @@ async function generateEmbedding(text: string, apiKey: string): Promise<number[]
     body: JSON.stringify({
       model: 'text-embedding-3-small',
       input: text,
+      dimensions: 768, // Match database vector dimension
     }),
   });
 
   if (!response.ok) {
-    throw new Error(`Embedding generation failed: ${response.status}`);
+    const errorText = await response.text();
+    console.error('Embedding generation failed:', response.status, errorText);
+    throw new Error(`Embedding generation failed: ${response.status} - ${errorText}`);
   }
 
   const result = await response.json();
+  console.log('Embedding generated successfully');
   return result.data[0].embedding;
 }
 
@@ -35,13 +41,29 @@ serve(async (req) => {
 
   try {
     const { conversationId, query, pdfId } = await req.json();
+    console.log('Chat RAG request:', { conversationId, pdfId, queryLength: query?.length });
 
     if (!query) {
-      throw new Error('Query is required');
+      return new Response(
+        JSON.stringify({ error: 'Query is required' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
+    if (!LOVABLE_API_KEY) {
+      console.error('LOVABLE_API_KEY not configured');
+      return new Response(
+        JSON.stringify({ error: 'AI service not configured. Please contact support.' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -56,7 +78,19 @@ serve(async (req) => {
       .limit(10);
 
     // Generate embedding for the query
-    const queryEmbedding = await generateEmbedding(query, LOVABLE_API_KEY);
+    let queryEmbedding: number[];
+    try {
+      queryEmbedding = await generateEmbedding(query, LOVABLE_API_KEY);
+    } catch (embeddingError) {
+      console.error('Failed to generate embedding:', embeddingError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to process query. Please try again.' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
 
     // Search for relevant chunks using vector similarity
     const { data: relevantChunks, error: searchError } = await supabase
@@ -121,6 +155,7 @@ ${contextText}
 Provide clear, accurate answers based ONLY on the context provided above. Always include proper citations.`;
 
     // Stream response from Lovable AI
+    console.log('Calling Lovable AI Gateway...');
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -145,6 +180,9 @@ Provide clear, accurate answers based ONLY on the context provided above. Always
     });
 
     if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
+      console.error('AI Gateway error:', aiResponse.status, errorText);
+      
       if (aiResponse.status === 429) {
         return new Response(
           JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
@@ -163,8 +201,16 @@ Provide clear, accurate answers based ONLY on the context provided above. Always
           }
         );
       }
-      throw new Error(`AI Gateway error: ${aiResponse.status}`);
+      return new Response(
+        JSON.stringify({ error: `AI service error: ${aiResponse.status}` }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
+
+    console.log('Streaming AI response...');
 
     // Return the stream directly to client
     return new Response(aiResponse.body, {

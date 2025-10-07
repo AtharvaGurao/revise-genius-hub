@@ -113,23 +113,50 @@ const ChatUI = ({ selectedPdfId }: ChatUIProps) => {
       });
 
       if (!response.ok || !response.body) {
+        let errorMessage = 'Failed to start chat stream';
+        
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          // Use default error message if parsing fails
+        }
+
         if (response.status === 429) {
           toast({
             title: "Rate limit exceeded",
             description: "Too many requests. Please try again later.",
             variant: "destructive",
           });
-          return;
-        }
-        if (response.status === 402) {
+        } else if (response.status === 402) {
           toast({
             title: "AI credits exhausted",
             description: "Please add credits to continue using AI features.",
             variant: "destructive",
           });
-          return;
+        } else {
+          toast({
+            title: "Chat error",
+            description: errorMessage,
+            variant: "destructive",
+          });
+          
+          // Add fallback assistant message
+          const fallbackMessage: Message = {
+            id: `msg-${Date.now()}`,
+            role: "assistant",
+            content: "I apologize, but I encountered an error processing your request. Please try again or contact support if the issue persists.",
+          };
+          
+          setChats((prev) =>
+            prev.map((chat) =>
+              chat.id === currentChatId
+                ? { ...chat, messages: [...chat.messages, fallbackMessage] }
+                : chat
+            )
+          );
         }
-        throw new Error('Failed to start chat stream');
+        return;
       }
 
       // Stream the response
@@ -214,6 +241,21 @@ const ChatUI = ({ selectedPdfId }: ChatUIProps) => {
         description: error.message || "Could not send message. Please try again.",
         variant: "destructive",
       });
+      
+      // Add fallback assistant message on error
+      const fallbackMessage: Message = {
+        id: `msg-${Date.now()}`,
+        role: "assistant",
+        content: "I apologize, but I'm having trouble connecting to the AI service. Please check your connection and try again.",
+      };
+      
+      setChats((prev) =>
+        prev.map((chat) =>
+          chat.id === currentChatId
+            ? { ...chat, messages: [...chat.messages, fallbackMessage] }
+            : chat
+        )
+      );
     } finally {
       setIsLoading(false);
     }
