@@ -90,6 +90,48 @@ serve(async (req) => {
       );
     }
 
+    // Check if PDFs are processed and trigger processing if needed
+    console.log('Checking PDF processing status...');
+    const { data: pdfDocs, error: pdfError } = await supabaseClient
+      .from('pdfs')
+      .select('id, processed, title')
+      .in('id', targetPdfIds);
+
+    if (pdfError) {
+      console.error('Error fetching PDF status:', pdfError);
+      return new Response(
+        JSON.stringify({ videos: [], message: 'Error checking PDF status' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check if any PDFs need processing
+    const unprocessedPdfs = pdfDocs?.filter(pdf => !pdf.processed) || [];
+    
+    if (unprocessedPdfs.length > 0) {
+      console.log(`Found ${unprocessedPdfs.length} unprocessed PDFs, triggering processing...`);
+      
+      // Trigger processing for unprocessed PDFs
+      for (const pdf of unprocessedPdfs) {
+        try {
+          await supabaseClient.functions.invoke('process-pdf', {
+            body: { pdfId: pdf.id }
+          });
+        } catch (error) {
+          console.error(`Failed to trigger processing for PDF ${pdf.id}:`, error);
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          videos: [], 
+          message: 'PDFs are being processed. Please wait a moment and try again.',
+          processing: true 
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Fetch PDF chunks (actual content) for AI analysis
     console.log('Fetching PDF content for AI analysis...');
     const { data: chunks, error: chunksError } = await supabaseClient
@@ -107,11 +149,139 @@ serve(async (req) => {
       );
     }
 
+    // If no chunks available yet but PDFs are marked as processed, fall back to title
     if (!chunks || chunks.length === 0) {
-      console.log('No PDF content found');
+      console.log('No PDF chunks found, falling back to title keywords');
+      const titles = pdfDocs?.map(pdf => pdf.title).join(' ') || '';
+      
+      if (!titles) {
+        return new Response(
+          JSON.stringify({ videos: [], message: 'No content available to analyze' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Use titles as keywords directly
+      const keywords = titles;
+      console.log('Using title keywords:', keywords);
+
+      // Skip AI analysis and go straight to YouTube search with title
+      const youtubeApiKey = Deno.env.get('YOUTUBE_API_KEY');
+      if (!youtubeApiKey) {
+        console.warn('YouTube API key not configured');
+        return new Response(
+          JSON.stringify({ videos: [], message: 'YouTube API key not configured' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const searchQuery = `${keywords} educational tutorial explanation`;
+      const youtubeSearchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(searchQuery)}&type=video&videoCategoryId=27&maxResults=10&key=${youtubeApiKey}`;
+
+      console.log('Searching YouTube with title-based query:', searchQuery);
+
+      let searchResponse;
+      try {
+        searchResponse = await fetch(youtubeSearchUrl);
+        if (!searchResponse.ok) {
+          const errorText = await searchResponse.text();
+          console.error('YouTube API search error:', errorText);
+          return new Response(
+            JSON.stringify({ videos: [], message: 'YouTube API request failed. Please try again later.' }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (fetchError) {
+        console.error('Network error during YouTube search:', fetchError);
+        return new Response(
+          JSON.stringify({ videos: [], message: 'Network error. Please check your connection.' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const searchData = await searchResponse.json();
+      
+      if (searchData.error) {
+        console.error('YouTube API returned error:', searchData.error);
+        return new Response(
+          JSON.stringify({ videos: [], message: `YouTube API error: ${searchData.error.message || 'Unknown error'}` }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const videoIds = searchData.items?.map((item: any) => item.id.videoId).join(',') || '';
+
+      if (!videoIds) {
+        console.log('No videos found in search results');
+        return new Response(
+          JSON.stringify({ videos: [], message: 'No videos found for this topic' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Get video details
+      const detailsUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&id=${videoIds}&key=${youtubeApiKey}`;
+      
+      console.log('Fetching video details');
+      let detailsResponse;
+      try {
+        detailsResponse = await fetch(detailsUrl);
+        if (!detailsResponse.ok) {
+          const errorText = await detailsResponse.text();
+          console.error('YouTube API details error:', errorText);
+          return new Response(
+            JSON.stringify({ videos: [], message: 'Failed to fetch video details' }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (fetchError) {
+        console.error('Network error during video details fetch:', fetchError);
+        return new Response(
+          JSON.stringify({ videos: [], message: 'Network error while fetching video details' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const detailsData = await detailsResponse.json();
+      
+      if (detailsData.error) {
+        console.error('YouTube API details error:', detailsData.error);
+        return new Response(
+          JSON.stringify({ videos: [], message: 'Error fetching video details' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Format video data
+      const videos: VideoRecommendation[] = detailsData.items?.map((video: any) => {
+        const duration = video.contentDetails.duration
+          .replace('PT', '')
+          .replace('H', ':')
+          .replace('M', ':')
+          .replace('S', '');
+
+        const viewCount = parseInt(video.statistics.viewCount);
+        const views = viewCount >= 1000000 
+          ? `${(viewCount / 1000000).toFixed(1)}M views`
+          : viewCount >= 1000
+          ? `${(viewCount / 1000).toFixed(0)}K views`
+          : `${viewCount} views`;
+
+        return {
+          videoId: video.id,
+          title: video.snippet.title,
+          thumbnail: video.snippet.thumbnails.medium.url,
+          channel: video.snippet.channelTitle,
+          duration: duration,
+          views: views,
+        };
+      }) || [];
+
+      console.log(`Successfully fetched ${videos.length} videos using title fallback`);
+
       return new Response(
-        JSON.stringify({ videos: [], message: 'PDF not yet processed. Please wait and try again.' }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ videos }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 

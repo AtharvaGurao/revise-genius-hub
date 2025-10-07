@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ExternalLink, Play, Loader2, Youtube } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +25,7 @@ interface YouTubeRecommenderProps {
 const YouTubeRecommender = ({ selectedPdfId, scope }: YouTubeRecommenderProps) => {
   const [videos, setVideos] = useState<VideoRecommendation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -36,8 +38,9 @@ const YouTubeRecommender = ({ selectedPdfId, scope }: YouTubeRecommenderProps) =
     }
   }, [selectedPdfId, scope]);
 
-  const fetchRecommendations = async () => {
+  const fetchRecommendations = async (retryCount = 0) => {
     setIsLoading(true);
+    setIsProcessing(false);
     setVideos([]); // Clear previous videos
     
     try {
@@ -60,7 +63,8 @@ const YouTubeRecommender = ({ selectedPdfId, scope }: YouTubeRecommenderProps) =
         pdfIds, 
         scope,
         hasSession: !!session,
-        userId: session.user.id 
+        userId: session.user.id,
+        retryCount 
       });
       
       const { data, error } = await supabase.functions.invoke('youtube-recommendations', {
@@ -76,6 +80,31 @@ const YouTubeRecommender = ({ selectedPdfId, scope }: YouTubeRecommenderProps) =
       }
 
       console.log('Received video data:', data);
+
+      // Check if PDFs are still being processed
+      if (data?.processing) {
+        setIsProcessing(true);
+        toast({
+          title: "Processing PDFs",
+          description: data.message || "Your PDFs are being analyzed. Please wait...",
+        });
+
+        // Retry after 3 seconds, max 5 retries
+        if (retryCount < 5) {
+          setTimeout(() => {
+            fetchRecommendations(retryCount + 1);
+          }, 3000);
+        } else {
+          toast({
+            title: "Processing taking longer than expected",
+            description: "Please try refreshing in a moment",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          setIsProcessing(false);
+        }
+        return;
+      }
 
       if (data?.videos && Array.isArray(data.videos)) {
         setVideos(data.videos);
@@ -100,6 +129,7 @@ const YouTubeRecommender = ({ selectedPdfId, scope }: YouTubeRecommenderProps) =
       setVideos([]);
     } finally {
       setIsLoading(false);
+      setIsProcessing(false);
     }
   };
 
@@ -107,10 +137,32 @@ const YouTubeRecommender = ({ selectedPdfId, scope }: YouTubeRecommenderProps) =
     window.open(`https://www.youtube.com/watch?v=${videoId}`, "_blank");
   };
 
-  if (isLoading) {
+  if (isLoading || isProcessing) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="h-full flex flex-col">
+        <div className="p-3 sm:p-4 border-b bg-card">
+          <div className="flex items-center gap-2 mb-2">
+            <Youtube className="h-4 w-4 sm:h-5 sm:w-5 text-destructive flex-shrink-0" />
+            <h3 className="font-heading font-semibold text-sm sm:text-base">Recommended Videos</h3>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {isProcessing ? "Analyzing PDF content..." : "Loading recommendations..."}
+          </p>
+        </div>
+        <ScrollArea className="flex-1 p-3 sm:p-4">
+          <div className="space-y-3 sm:space-y-4">
+            {[1, 2, 3].map((i) => (
+              <Card key={i} className="overflow-hidden">
+                <Skeleton className="w-full h-32 sm:h-40" />
+                <div className="p-3 sm:p-4 space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-8 w-full" />
+                </div>
+              </Card>
+            ))}
+          </div>
+        </ScrollArea>
       </div>
     );
   }
@@ -185,7 +237,7 @@ const YouTubeRecommender = ({ selectedPdfId, scope }: YouTubeRecommenderProps) =
           variant="outline"
           size="sm"
           className="w-full text-xs sm:text-sm"
-          onClick={fetchRecommendations}
+          onClick={() => fetchRecommendations(0)}
           disabled={isLoading}
         >
           Refresh Recommendations
