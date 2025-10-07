@@ -77,17 +77,13 @@ const YouTubeRecommender = ({ selectedPdfId, scope }: YouTubeRecommenderProps) =
 
       console.log('Received video data:', data);
 
-      if (data?.error) {
-        throw new Error(data.error);
-      }
-
       if (data?.videos && Array.isArray(data.videos)) {
         setVideos(data.videos);
         console.log(`Loaded ${data.videos.length} video recommendations`);
-        if (data.videos.length === 0) {
+        if (data.videos.length === 0 && data.message) {
           toast({
-            title: "No videos found",
-            description: "No relevant educational videos found for your content.",
+            title: "No videos available",
+            description: data.message,
           });
         }
       } else {

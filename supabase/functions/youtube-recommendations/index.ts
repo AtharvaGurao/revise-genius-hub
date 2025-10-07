@@ -29,10 +29,10 @@ serve(async (req) => {
     console.log('Auth header present:', !!authHeader);
     
     if (!authHeader) {
-      console.error('No authorization header provided');
+      console.warn('No authorization header - returning empty videos');
       return new Response(
-        JSON.stringify({ error: 'Authentication required' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ videos: [], message: 'Authentication required' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -50,19 +50,11 @@ serve(async (req) => {
     // Get user from token
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     
-    if (userError) {
-      console.error('Error getting user:', userError.message);
+    if (userError || !user) {
+      console.warn('Authentication failed:', userError?.message || 'No user found');
       return new Response(
-        JSON.stringify({ error: `Authentication failed: ${userError.message}` }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    if (!user) {
-      console.error('No user found from token');
-      return new Response(
-        JSON.stringify({ error: 'User not authenticated' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ videos: [], message: 'Authentication failed' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
@@ -109,7 +101,20 @@ serve(async (req) => {
     // Get YouTube API key
     const youtubeApiKey = Deno.env.get('YOUTUBE_API_KEY');
     if (!youtubeApiKey) {
-      throw new Error('YouTube API key not configured');
+      console.warn('YouTube API key not configured');
+      return new Response(
+        JSON.stringify({ videos: [], message: 'YouTube API key not configured' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate keywords
+    if (!keywords || keywords.trim().length === 0) {
+      console.warn('No keywords extracted from PDFs');
+      return new Response(
+        JSON.stringify({ videos: [], message: 'No content available to search' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Search YouTube for educational videos
@@ -118,21 +123,43 @@ serve(async (req) => {
 
     console.log('Searching YouTube with query:', searchQuery);
 
-    const searchResponse = await fetch(youtubeSearchUrl);
-    if (!searchResponse.ok) {
-      const errorText = await searchResponse.text();
-      console.error('YouTube API error:', errorText);
-      throw new Error(`YouTube API error: ${searchResponse.status}`);
+    let searchResponse;
+    try {
+      searchResponse = await fetch(youtubeSearchUrl);
+      if (!searchResponse.ok) {
+        const errorText = await searchResponse.text();
+        console.error('YouTube API search error:', errorText);
+        return new Response(
+          JSON.stringify({ videos: [], message: 'YouTube API request failed. Please try again later.' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } catch (fetchError) {
+      console.error('Network error during YouTube search:', fetchError);
+      return new Response(
+        JSON.stringify({ videos: [], message: 'Network error. Please check your connection.' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const searchData = await searchResponse.json();
+    
+    // Check for API errors (rate limit, quota exceeded, etc.)
+    if (searchData.error) {
+      console.error('YouTube API returned error:', searchData.error);
+      return new Response(
+        JSON.stringify({ videos: [], message: `YouTube API error: ${searchData.error.message || 'Unknown error'}` }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const videoIds = searchData.items?.map((item: any) => item.id.videoId).join(',') || '';
 
     if (!videoIds) {
       console.log('No videos found in search results');
       return new Response(
-        JSON.stringify({ videos: [] }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ videos: [], message: 'No videos found for this topic' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -140,14 +167,35 @@ serve(async (req) => {
     const detailsUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&id=${videoIds}&key=${youtubeApiKey}`;
     
     console.log('Fetching video details');
-    const detailsResponse = await fetch(detailsUrl);
-    if (!detailsResponse.ok) {
-      const errorText = await detailsResponse.text();
-      console.error('YouTube API error (details):', errorText);
-      throw new Error(`YouTube API error: ${detailsResponse.status}`);
+    let detailsResponse;
+    try {
+      detailsResponse = await fetch(detailsUrl);
+      if (!detailsResponse.ok) {
+        const errorText = await detailsResponse.text();
+        console.error('YouTube API details error:', errorText);
+        return new Response(
+          JSON.stringify({ videos: [], message: 'Failed to fetch video details' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } catch (fetchError) {
+      console.error('Network error during video details fetch:', fetchError);
+      return new Response(
+        JSON.stringify({ videos: [], message: 'Network error while fetching video details' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const detailsData = await detailsResponse.json();
+    
+    // Check for API errors in details response
+    if (detailsData.error) {
+      console.error('YouTube API details error:', detailsData.error);
+      return new Response(
+        JSON.stringify({ videos: [], message: 'Error fetching video details' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Format video data
     const videos: VideoRecommendation[] = detailsData.items?.map((video: any) => {
@@ -183,12 +231,12 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error in youtube-recommendations function:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    console.error('Unexpected error in youtube-recommendations function:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ videos: [], message: errorMessage }),
       { 
-        status: 500,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
