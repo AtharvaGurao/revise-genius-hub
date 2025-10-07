@@ -28,28 +28,31 @@ function chunkText(text: string, pageNumber: number, chunkSize = 500): Array<{te
   return chunks;
 }
 
-// Generate embedding using Lovable AI
+// Generate embedding using OpenAI text-embedding-3-large
 async function generateEmbedding(text: string, apiKey: string): Promise<number[]> {
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
+  console.log('Generating embedding with OpenAI text-embedding-3-large...');
+  
+  const response = await fetch('https://api.openai.com/v1/embeddings', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'text-embedding-3-small',
+      model: 'text-embedding-3-large',
       input: text,
-      dimensions: 768, // Match database vector dimension
+      dimensions: 1536, // Match database vector dimension
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('Embedding generation failed:', response.status, errorText);
+    console.error('OpenAI embedding generation failed:', response.status, errorText);
     throw new Error(`Embedding generation failed: ${response.status}`);
   }
 
   const result = await response.json();
+  console.log('Embedding generated successfully');
   return result.data[0].embedding;
 }
 
@@ -65,8 +68,8 @@ serve(async (req) => {
       throw new Error('PDF ID is required');
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not configured');
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -100,7 +103,7 @@ serve(async (req) => {
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -155,7 +158,7 @@ serve(async (req) => {
 
     // Generate embeddings and store chunks
     for (const chunk of allChunks) {
-      const embedding = await generateEmbedding(chunk.text, LOVABLE_API_KEY);
+      const embedding = await generateEmbedding(chunk.text, OPENAI_API_KEY);
       
       const { error: insertError } = await supabase
         .from('pdf_chunks')

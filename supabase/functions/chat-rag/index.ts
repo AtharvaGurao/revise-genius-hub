@@ -8,24 +8,24 @@ const corsHeaders = {
 
 // Generate embedding for query
 async function generateEmbedding(text: string, apiKey: string): Promise<number[]> {
-  console.log('Generating embedding for query...');
+  console.log('Generating embedding with OpenAI text-embedding-3-large...');
   
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
+  const response = await fetch('https://api.openai.com/v1/embeddings', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'text-embedding-3-small',
+      model: 'text-embedding-3-large',
       input: text,
-      dimensions: 768, // Match database vector dimension
+      dimensions: 1536, // Match database vector dimension
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('Embedding generation failed:', response.status, errorText);
+    console.error('OpenAI embedding generation failed:', response.status, errorText);
     throw new Error(`Embedding generation failed: ${response.status} - ${errorText}`);
   }
 
@@ -53,9 +53,9 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      console.error('LOVABLE_API_KEY not configured');
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!OPENAI_API_KEY) {
+      console.error('OPENAI_API_KEY not configured');
       return new Response(
         JSON.stringify({ error: 'AI service not configured. Please contact support.' }),
         {
@@ -80,7 +80,7 @@ serve(async (req) => {
     // Generate embedding for the query
     let queryEmbedding: number[];
     try {
-      queryEmbedding = await generateEmbedding(query, LOVABLE_API_KEY);
+      queryEmbedding = await generateEmbedding(query, OPENAI_API_KEY);
     } catch (embeddingError) {
       console.error('Failed to generate embedding:', embeddingError);
       return new Response(
@@ -154,16 +154,16 @@ ${contextText}
 
 Provide clear, accurate answers based ONLY on the context provided above. Always include proper citations.`;
 
-    // Stream response from Lovable AI
-    console.log('Calling Lovable AI Gateway...');
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Stream response from OpenAI gpt-4o-mini
+    console.log('Calling OpenAI gpt-4o-mini...');
+    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
