@@ -36,12 +36,20 @@ const YouTubeRecommender = ({ selectedPdfId, scope }: YouTubeRecommenderProps) =
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
-        console.error('No active session');
+        console.error('No active session - user needs to log in');
+        toast({
+          title: "Authentication required",
+          description: "Please log in to view video recommendations.",
+          variant: "destructive",
+        });
         setVideos([]);
+        setIsLoading(false);
         return;
       }
 
       const pdfIds = selectedPdfId ? [selectedPdfId] : [];
+      
+      console.log('Fetching YouTube recommendations with:', { pdfIds, scope });
       
       const { data, error } = await supabase.functions.invoke('youtube-recommendations', {
         body: { 
@@ -55,16 +63,25 @@ const YouTubeRecommender = ({ selectedPdfId, scope }: YouTubeRecommenderProps) =
         throw error;
       }
 
-      if (data?.videos) {
+      console.log('Received video data:', data);
+
+      if (data?.videos && Array.isArray(data.videos)) {
         setVideos(data.videos);
+        if (data.videos.length === 0) {
+          toast({
+            title: "No videos found",
+            description: "No relevant educational videos found for your PDFs.",
+          });
+        }
       } else {
         setVideos([]);
       }
     } catch (error) {
       console.error('Error in fetchRecommendations:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
       toast({
         title: "Failed to load recommendations",
-        description: "Could not fetch video recommendations. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
       setVideos([]);
