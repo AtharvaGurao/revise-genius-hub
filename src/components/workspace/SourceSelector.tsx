@@ -3,10 +3,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Upload, Search, FileText } from "lucide-react";
+import { Upload, Search, FileText, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 
 interface PDF {
@@ -33,6 +43,8 @@ const SourceSelector = ({
   const [pdfs, setPdfs] = useState<PDF[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [pdfToDelete, setPdfToDelete] = useState<PDF | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -144,6 +156,64 @@ const SourceSelector = ({
     }
   };
 
+  const handleDeleteClick = (pdf: PDF, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent PDF selection when clicking delete
+    setPdfToDelete(pdf);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!pdfToDelete) return;
+
+    try {
+      const { data: pdfData, error: fetchError } = await supabase
+        .from("pdfs")
+        .select("file_path")
+        .eq("id", pdfToDelete.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Delete from storage
+      const { error: storageError } = await supabase.storage
+        .from("pdfs")
+        .remove([pdfData.file_path]);
+
+      if (storageError) throw storageError;
+
+      // Delete from database
+      const { error: dbError } = await supabase
+        .from("pdfs")
+        .delete()
+        .eq("id", pdfToDelete.id);
+
+      if (dbError) throw dbError;
+
+      // Update local state
+      setPdfs(pdfs.filter((pdf) => pdf.id !== pdfToDelete.id));
+      
+      // Clear selection if deleted PDF was selected
+      if (selectedPdfId === pdfToDelete.id) {
+        onSelectPdf(null);
+      }
+
+      toast({
+        title: "PDF deleted",
+        description: `"${pdfToDelete.title}" has been removed from your library.`,
+      });
+    } catch (error: any) {
+      console.error("Delete error:", error);
+      toast({
+        title: "Delete failed",
+        description: error.message || "Could not delete PDF. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteDialogOpen(false);
+      setPdfToDelete(null);
+    }
+  };
+
   const filteredPdfs = pdfs.filter((pdf) =>
     pdf.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -227,12 +297,41 @@ const SourceSelector = ({
                       {pdf.pages} pages
                     </p>
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 flex-shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={(e) => handleDeleteClick(pdf, e)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               </Card>
             ))
           )}
         </div>
       </ScrollArea>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete PDF</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{pdfToDelete?.title}"? This action cannot be undone and will permanently remove the PDF from your library.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
