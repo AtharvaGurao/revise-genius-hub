@@ -27,7 +27,7 @@ const ProgressMiniDashboard = () => {
   useEffect(() => {
     fetchProgress();
 
-    // Set up realtime subscription for attempts
+    // Set up realtime subscription for quiz attempts
     const setupRealtime = async () => {
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session) return;
@@ -38,8 +38,8 @@ const ProgressMiniDashboard = () => {
           'postgres_changes',
           {
             event: 'INSERT',
-            schema: 'app',
-            table: 'attempts',
+            schema: 'public',
+            table: 'quiz_attempts_v2',
           },
           () => {
             // Refresh progress when new attempt is added
@@ -64,9 +64,9 @@ const ProgressMiniDashboard = () => {
         return;
       }
 
-      // Fetch from progress_summary view
+      // Fetch from quiz_progress_summary view
       const { data: summaryData, error: summaryError } = await supabase
-        .from("progress_summary" as any)
+        .from("quiz_progress_summary" as any)
         .select("*")
         .eq("user_id", session.session.user.id)
         .single();
@@ -90,7 +90,7 @@ const ProgressMiniDashboard = () => {
 
       // Fetch recent attempts for chart
       const { data: recentData, error: recentError } = await supabase
-        .from("attempts" as any)
+        .from("quiz_attempts_v2" as any)
         .select("*")
         .eq("user_id", session.session.user.id)
         .order("created_at", { ascending: false })

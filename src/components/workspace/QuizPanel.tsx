@@ -149,13 +149,13 @@ const QuizPanel = ({ scope, selectedPdfId }: QuizPanelProps) => {
       percent: Math.round((correctCount / totalCount) * 100),
     });
 
-    // Save to new app.attempts and app.answers tables
+    // Save to quiz_attempts_v2 and quiz_answers tables
     try {
       const { data: session } = await supabase.auth.getSession();
       if (session.session) {
         // Insert attempt record
         const { data: attemptData, error: attemptError } = await supabase
-          .from("attempts" as any)
+          .from("quiz_attempts_v2")
           .insert({
             user_id: session.session.user.id,
             pdf_id: selectedPdfId || null,
@@ -186,7 +186,7 @@ const QuizPanel = ({ scope, selectedPdfId }: QuizPanelProps) => {
         });
 
         const { error: answersError } = await supabase
-          .from("answers" as any)
+          .from("quiz_answers")
           .insert(answerRecords);
 
         if (answersError) throw answersError;

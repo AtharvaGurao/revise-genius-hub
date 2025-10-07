@@ -115,6 +115,53 @@ export type Database = {
         }
         Relationships: []
       }
+      quiz_answers: {
+        Row: {
+          attempt_id: string
+          correct_answer: string | null
+          created_at: string
+          id: string
+          is_correct: boolean
+          question_id: string
+          question_text: string
+          question_type: string
+          topic: string | null
+          user_answer: string | null
+        }
+        Insert: {
+          attempt_id: string
+          correct_answer?: string | null
+          created_at?: string
+          id?: string
+          is_correct?: boolean
+          question_id: string
+          question_text: string
+          question_type: string
+          topic?: string | null
+          user_answer?: string | null
+        }
+        Update: {
+          attempt_id?: string
+          correct_answer?: string | null
+          created_at?: string
+          id?: string
+          is_correct?: boolean
+          question_id?: string
+          question_text?: string
+          question_type?: string
+          topic?: string | null
+          user_answer?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_answers_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_attempts_v2"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quiz_attempts: {
         Row: {
           answers: Json
@@ -159,9 +206,64 @@ export type Database = {
           },
         ]
       }
+      quiz_attempts_v2: {
+        Row: {
+          correct_answers: number
+          created_at: string
+          id: string
+          pdf_id: string | null
+          quiz_type: string
+          score_percentage: number | null
+          total_questions: number
+          user_id: string
+        }
+        Insert: {
+          correct_answers?: number
+          created_at?: string
+          id?: string
+          pdf_id?: string | null
+          quiz_type: string
+          score_percentage?: number | null
+          total_questions: number
+          user_id: string
+        }
+        Update: {
+          correct_answers?: number
+          created_at?: string
+          id?: string
+          pdf_id?: string | null
+          quiz_type?: string
+          score_percentage?: number | null
+          total_questions?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_attempts_v2_pdf_id_fkey"
+            columns: ["pdf_id"]
+            isOneToOne: false
+            referencedRelation: "pdfs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
-      [_ in never]: never
+      quiz_progress_summary: {
+        Row: {
+          average_score: number | null
+          last_attempt_at: string | null
+          overall_accuracy: number | null
+          recent_average_score: number | null
+          strengths: string[] | null
+          total_attempts: number | null
+          total_correct_answers: number | null
+          total_questions_attempted: number | null
+          user_id: string | null
+          weaknesses: string[] | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       binary_quantize: {
