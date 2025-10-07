@@ -26,6 +26,34 @@ const ProgressMiniDashboard = () => {
 
   useEffect(() => {
     fetchProgress();
+
+    // Set up realtime subscription for attempts
+    const setupRealtime = async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) return;
+
+      const channel = supabase
+        .channel('quiz-progress-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'app',
+            table: 'attempts',
+          },
+          () => {
+            // Refresh progress when new attempt is added
+            fetchProgress();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    };
+
+    setupRealtime();
   }, []);
 
   const fetchProgress = async () => {
@@ -36,40 +64,56 @@ const ProgressMiniDashboard = () => {
         return;
       }
 
-      const { data, error } = await supabase
-        .from("quiz_attempts")
+      // Fetch from progress_summary view
+      const { data: summaryData, error: summaryError } = await supabase
+        .from("progress_summary" as any)
+        .select("*")
+        .eq("user_id", session.session.user.id)
+        .single();
+
+      if (summaryError) {
+        // If no data yet, show empty state
+        if (summaryError.code === "PGRST116") {
+          setProgressData({
+            accuracyOverall: 0,
+            recentAttempts: [],
+            strengths: [],
+            weaknesses: [],
+            totalAttempts: 0,
+            averageScore: 0,
+          });
+          setLoading(false);
+          return;
+        }
+        throw summaryError;
+      }
+
+      // Fetch recent attempts for chart
+      const { data: recentData, error: recentError } = await supabase
+        .from("attempts" as any)
         .select("*")
         .eq("user_id", session.session.user.id)
         .order("created_at", { ascending: false })
-        .limit(10);
+        .limit(5);
 
-      if (error) throw error;
+      if (recentError) throw recentError;
 
-      if (data && data.length > 0) {
-        const totalAttempts = data.length;
-        const totalScore = data.reduce(
-          (sum, attempt) => sum + (attempt.score / attempt.total_questions) * 100,
-          0
-        );
-        const averageScore = Math.round(totalScore / totalAttempts);
+      const recentAttempts = (recentData || []).map((attempt: any) => ({
+        date: new Date(attempt.created_at).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        }),
+        accuracy: Math.round(attempt.score_percentage),
+      })).reverse();
 
-        const recentAttempts = data.slice(0, 5).map((attempt) => ({
-          date: new Date(attempt.created_at).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-          }),
-          accuracy: Math.round((attempt.score / attempt.total_questions) * 100),
-        })).reverse();
-
-        setProgressData({
-          accuracyOverall: averageScore,
-          recentAttempts,
-          strengths: ["Kinematics", "Thermodynamics"], // TODO: Analyze from questions
-          weaknesses: ["Modern Physics"], // TODO: Analyze from questions
-          totalAttempts,
-          averageScore,
-        });
-      }
+      setProgressData({
+        accuracyOverall: Math.round((summaryData as any).overall_accuracy || 0),
+        recentAttempts,
+        strengths: (summaryData as any).strengths || [],
+        weaknesses: (summaryData as any).weaknesses || [],
+        totalAttempts: (summaryData as any).total_attempts || 0,
+        averageScore: Math.round((summaryData as any).average_score || 0),
+      });
     } catch (error) {
       console.error("Error fetching progress:", error);
     } finally {

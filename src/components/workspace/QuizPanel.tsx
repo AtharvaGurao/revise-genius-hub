@@ -149,28 +149,61 @@ const QuizPanel = ({ scope, selectedPdfId }: QuizPanelProps) => {
       percent: Math.round((correctCount / totalCount) * 100),
     });
 
-    // Save to database
+    // Save to new app.attempts and app.answers tables
     try {
       const { data: session } = await supabase.auth.getSession();
       if (session.session) {
-        await supabase.from("quiz_attempts").insert({
-          user_id: session.session.user.id,
-          pdf_id: selectedPdfId || null,
-          quiz_type: selectedTypes.join(","),
-          score: correctCount,
-          total_questions: totalCount,
-          questions: questions as any,
-          answers: userAnswers as any,
-        } as any);
+        // Insert attempt record
+        const { data: attemptData, error: attemptError } = await supabase
+          .from("attempts" as any)
+          .insert({
+            user_id: session.session.user.id,
+            pdf_id: selectedPdfId || null,
+            quiz_type: selectedTypes.join(","),
+            total_questions: totalCount,
+            correct_answers: correctCount,
+          })
+          .select()
+          .single();
+
+        if (attemptError) throw attemptError;
+
+        // Insert individual answer records
+        const answerRecords = mockResults.map((result, index) => {
+          const question = questions[index];
+          return {
+            attempt_id: (attemptData as any).id,
+            question_id: result.questionId,
+            question_type: question.type,
+            question_text: question.question,
+            user_answer: String(result.userAnswer || ""),
+            correct_answer: question.type === "MCQ" && question.answerKey !== undefined
+              ? String(question.choices?.[question.answerKey] || "")
+              : "",
+            is_correct: result.correct,
+            topic: null, // TODO: Extract topic from question if available
+          };
+        });
+
+        const { error: answersError } = await supabase
+          .from("answers" as any)
+          .insert(answerRecords);
+
+        if (answersError) throw answersError;
+
+        toast({
+          title: "Quiz submitted!",
+          description: `You scored ${correctCount}/${totalCount} (${Math.round((correctCount / totalCount) * 100)}%)`,
+        });
       }
     } catch (error) {
       console.error("Error saving quiz attempt:", error);
+      toast({
+        title: "Saved locally",
+        description: "Quiz completed but couldn't sync to server.",
+        variant: "destructive",
+      });
     }
-
-    toast({
-      title: "Quiz submitted!",
-      description: `You scored ${correctCount}/${totalCount} (${Math.round((correctCount / totalCount) * 100)}%)`,
-    });
   };
 
   return (
