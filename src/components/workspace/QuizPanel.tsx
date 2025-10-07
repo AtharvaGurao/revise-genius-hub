@@ -191,16 +191,16 @@ const QuizPanel = ({ scope, selectedPdfId }: QuizPanelProps) => {
     <div className="h-full flex flex-col">
       {questions.length === 0 ? (
         // Quiz Configuration
-        <div className="flex-1 overflow-auto p-6">
-          <div className="max-w-2xl mx-auto space-y-6">
+        <div className="flex-1 overflow-auto p-3 sm:p-6">
+          <div className="max-w-2xl mx-auto space-y-4 sm:space-y-6">
             <div>
-              <h2 className="font-heading font-bold text-2xl mb-2">Generate Quiz</h2>
-              <p className="text-muted-foreground">
+              <h2 className="font-heading font-bold text-xl sm:text-2xl mb-2">Generate Quiz</h2>
+              <p className="text-sm sm:text-base text-muted-foreground">
                 Configure your quiz parameters and generate questions from your PDFs.
               </p>
             </div>
 
-            <Card className="p-6 space-y-6">
+            <Card className="p-4 sm:p-6 space-y-4 sm:space-y-6">
               {/* Question Types */}
               <div>
                 <Label className="text-base font-semibold mb-3 block">
@@ -229,20 +229,24 @@ const QuizPanel = ({ scope, selectedPdfId }: QuizPanelProps) => {
 
               {/* Question Count */}
               <div>
-                <Label htmlFor="count" className="text-base font-semibold mb-3 block">
+                <Label htmlFor="count" className="text-sm sm:text-base font-semibold mb-2 sm:mb-3 block">
                   Number of Questions
                 </Label>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3">
                   <Button
                     variant="outline"
+                    size="sm"
                     onClick={() => setQuestionCount(Math.max(1, questionCount - 1))}
+                    className="h-9 w-9 sm:h-10 sm:w-10"
                   >
                     -
                   </Button>
-                  <span className="w-12 text-center font-semibold">{questionCount}</span>
+                  <span className="w-10 sm:w-12 text-center font-semibold text-sm sm:text-base">{questionCount}</span>
                   <Button
                     variant="outline"
+                    size="sm"
                     onClick={() => setQuestionCount(Math.min(20, questionCount + 1))}
+                    className="h-9 w-9 sm:h-10 sm:w-10"
                   >
                     +
                   </Button>
@@ -279,14 +283,14 @@ const QuizPanel = ({ scope, selectedPdfId }: QuizPanelProps) => {
         // Quiz Attempt / Results
         <div className="flex-1 overflow-auto">
           <ScrollArea className="h-full">
-            <div className="p-6 max-w-4xl mx-auto space-y-6">
+            <div className="p-3 sm:p-6 max-w-4xl mx-auto space-y-4 sm:space-y-6">
               {/* Header */}
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                 <div>
-                  <h2 className="font-heading font-bold text-2xl">Your Quiz</h2>
+                  <h2 className="font-heading font-bold text-xl sm:text-2xl">Your Quiz</h2>
                   {score && (
                     <Badge
-                      className="mt-2"
+                      className="mt-2 text-xs sm:text-sm"
                       variant={score.percent >= 70 ? "default" : "destructive"}
                     >
                       Score: {score.raw}/{score.total} ({score.percent}%)
@@ -295,12 +299,14 @@ const QuizPanel = ({ scope, selectedPdfId }: QuizPanelProps) => {
                 </div>
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => {
                     setQuestions([]);
                     setResults(null);
                     setScore(null);
                     setUserAnswers({});
                   }}
+                  className="w-full sm:w-auto"
                 >
                   <RotateCw className="h-4 w-4 mr-2" />
                   New Quiz
@@ -311,7 +317,7 @@ const QuizPanel = ({ scope, selectedPdfId }: QuizPanelProps) => {
               {questions.map((q, index) => {
                 const result = results?.find((r) => r.questionId === q.id);
                 return (
-                  <Card key={q.id} className="p-6 space-y-4">
+                  <Card key={q.id} className="p-4 sm:p-6 space-y-3 sm:space-y-4">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">

@@ -81,28 +81,29 @@ const PdfViewer = ({ pdfId }: PdfViewerProps) => {
   return (
     <div className="h-full flex flex-col bg-muted/20">
       {/* Toolbar */}
-      <div className="bg-card border-b px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
+      <div className="bg-card border-b px-2 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-2 sm:gap-4 flex-wrap">
         {/* Page Navigation */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           <Button
             variant="outline"
             size="icon"
             onClick={handlePrevPage}
             disabled={currentPage === 1}
+            className="h-8 w-8 sm:h-9 sm:w-9"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
           </Button>
           
-          <form onSubmit={handlePageJump} className="flex items-center gap-2">
+          <form onSubmit={handlePageJump} className="flex items-center gap-1 sm:gap-2">
             <Input
               name="page"
               type="number"
               min={1}
               max={totalPages}
               defaultValue={currentPage}
-              className="w-16 text-center"
+              className="w-12 sm:w-16 text-center text-xs sm:text-sm h-8 sm:h-9"
             />
-            <span className="text-sm text-muted-foreground">/ {totalPages}</span>
+            <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">/ {totalPages}</span>
           </form>
 
           <Button
@@ -110,27 +111,28 @@ const PdfViewer = ({ pdfId }: PdfViewerProps) => {
             size="icon"
             onClick={handleNextPage}
             disabled={currentPage === totalPages}
+            className="h-8 w-8 sm:h-9 sm:w-9"
           >
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
           </Button>
         </div>
 
         {/* Zoom Controls */}
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={handleZoomOut}>
-            <ZoomOut className="h-4 w-4" />
+        <div className="flex items-center gap-1 sm:gap-2">
+          <Button variant="outline" size="icon" onClick={handleZoomOut} className="h-8 w-8 sm:h-9 sm:w-9">
+            <ZoomOut className="h-3 w-3 sm:h-4 sm:w-4" />
           </Button>
-          <span className="text-sm font-medium min-w-[4rem] text-center">
+          <span className="text-xs sm:text-sm font-medium min-w-[3rem] sm:min-w-[4rem] text-center">
             {zoom}%
           </span>
-          <Button variant="outline" size="icon" onClick={handleZoomIn}>
-            <ZoomIn className="h-4 w-4" />
+          <Button variant="outline" size="icon" onClick={handleZoomIn} className="h-8 w-8 sm:h-9 sm:w-9">
+            <ZoomIn className="h-3 w-3 sm:h-4 sm:w-4" />
           </Button>
         </div>
       </div>
 
       {/* PDF Canvas */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-3 sm:p-6">
         <div
           className="mx-auto bg-white shadow-lg"
           style={{
@@ -147,10 +149,10 @@ const PdfViewer = ({ pdfId }: PdfViewerProps) => {
               <Page pageNumber={currentPage} scale={zoom / 100} />
             </Document>
           */}
-          <div className="p-8 space-y-4 text-gray-800">
-            <div className="flex items-center justify-between border-b pb-4">
-              <h2 className="text-2xl font-bold">NCERT Physics Class XI</h2>
-              <span className="text-sm text-gray-500">Page {currentPage} of {totalPages}</span>
+          <div className="p-4 sm:p-6 md:p-8 space-y-4 text-gray-800">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b pb-4">
+              <h2 className="text-lg sm:text-xl md:text-2xl font-bold">NCERT Physics Class XI</h2>
+              <span className="text-xs sm:text-sm text-gray-500">Page {currentPage} of {totalPages}</span>
             </div>
             
             <div className="bg-blue-50 border-l-4 border-blue-500 p-4">
@@ -159,7 +161,7 @@ const PdfViewer = ({ pdfId }: PdfViewerProps) => {
               </p>
             </div>
 
-            <h3 className="text-xl font-semibold mt-6">Chapter 3: Motion in a Straight Line</h3>
+            <h3 className="text-base sm:text-lg md:text-xl font-semibold mt-6">Chapter 3: Motion in a Straight Line</h3>
             
             <div className="space-y-4">
               <p className="leading-relaxed">

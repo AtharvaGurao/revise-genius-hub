@@ -105,7 +105,7 @@ const SourceSelector = ({
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {/* Scope Selector */}
       <div>
         <Label className="text-sm font-semibold mb-2 block">Quiz Scope</Label>
@@ -156,7 +156,7 @@ const SourceSelector = ({
       </div>
 
       {/* PDF List */}
-      <ScrollArea className="h-[400px]">
+      <ScrollArea className="h-[300px] sm:h-[400px]">
         <div className="space-y-2">
           {filteredPdfs.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">

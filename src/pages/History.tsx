@@ -54,33 +54,36 @@ const History = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" asChild>
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <Button variant="ghost" size="icon" asChild className="flex-shrink-0">
               <Link to="/app">
-                <ArrowLeft className="h-5 w-5" />
+                <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
               </Link>
             </Button>
-            <h1 className="font-heading font-bold text-2xl">Quiz History</h1>
+            <h1 className="font-heading font-bold text-lg sm:text-xl md:text-2xl truncate">Quiz History</h1>
           </div>
-          <Button asChild>
-            <Link to="/app">New Quiz</Link>
+          <Button asChild size="sm" className="flex-shrink-0">
+            <Link to="/app">
+              <span className="hidden sm:inline">New Quiz</span>
+              <span className="sm:hidden">New</span>
+            </Link>
           </Button>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Topic</TableHead>
-                  <TableHead>Score</TableHead>
-                  <TableHead>Accuracy</TableHead>
-                  <TableHead>Types</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="text-xs sm:text-sm whitespace-nowrap">Date</TableHead>
+                  <TableHead className="text-xs sm:text-sm whitespace-nowrap">Topic</TableHead>
+                  <TableHead className="text-xs sm:text-sm whitespace-nowrap">Score</TableHead>
+                  <TableHead className="text-xs sm:text-sm whitespace-nowrap hidden sm:table-cell">Accuracy</TableHead>
+                  <TableHead className="text-xs sm:text-sm whitespace-nowrap hidden md:table-cell">Types</TableHead>
+                  <TableHead className="text-right text-xs sm:text-sm whitespace-nowrap">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -93,27 +96,29 @@ const History = () => {
                 ) : (
                   attempts.map((attempt) => (
                     <TableRow key={attempt.id}>
-                      <TableCell className="font-medium">
-                        {format(attempt.date, "MMM dd, yyyy")}
+                      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap">
+                        <div className="hidden sm:block">{format(attempt.date, "MMM dd, yyyy")}</div>
+                        <div className="sm:hidden">{format(attempt.date, "MMM dd")}</div>
                       </TableCell>
-                      <TableCell>{attempt.topic}</TableCell>
-                      <TableCell>
+                      <TableCell className="text-xs sm:text-sm max-w-[150px] truncate">{attempt.topic}</TableCell>
+                      <TableCell className="text-xs sm:text-sm">
                         <span className="font-semibold">
                           {attempt.score.raw}/{attempt.score.total}
                         </span>{" "}
-                        <span className="text-muted-foreground">
+                        <span className="text-muted-foreground hidden lg:inline">
                           ({attempt.score.percent}%)
                         </span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <Badge
                           variant={getAccuracyColor(attempt.accuracy) as any}
+                          className="text-xs"
                         >
                           {attempt.accuracy}%
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
+                      <TableCell className="hidden md:table-cell">
+                        <div className="flex gap-1 flex-wrap">
                           {attempt.questionTypes.map((type) => (
                             <Badge key={type} variant="outline" className="text-xs">
                               {type}
@@ -122,9 +127,9 @@ const History = () => {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm">
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
+                        <Button variant="ghost" size="sm" className="h-8 px-2 sm:px-3">
+                          <Eye className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+                          <span className="hidden sm:inline text-xs">View</span>
                         </Button>
                       </TableCell>
                     </TableRow>

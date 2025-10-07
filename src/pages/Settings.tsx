@@ -33,17 +33,17 @@ const Settings = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-3">
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4 flex items-center gap-2 sm:gap-3">
           <Button variant="ghost" size="icon" asChild>
             <Link to="/app">
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
             </Link>
           </Button>
-          <h1 className="font-heading font-bold text-2xl">Settings</h1>
+          <h1 className="font-heading font-bold text-lg sm:text-xl md:text-2xl">Settings</h1>
         </div>
       </header>
 
-      <main className="container max-w-3xl mx-auto px-4 py-8 space-y-6">
+      <main className="container max-w-3xl mx-auto px-3 sm:px-4 py-4 sm:py-8 space-y-4 sm:space-y-6">
         {/* API Status */}
         <Card>
           <CardHeader>

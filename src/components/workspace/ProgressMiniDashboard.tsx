@@ -45,9 +45,9 @@ const ProgressMiniDashboard = () => {
   const { accuracyOverall, recentAttempts, strengths, weaknesses, totalAttempts, averageScore } = mockProgressData;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {/* Stats Overview */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">
@@ -55,7 +55,7 @@ const ProgressMiniDashboard = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalAttempts}</div>
+            <div className="text-xl sm:text-2xl font-bold">{totalAttempts}</div>
           </CardContent>
         </Card>
         
@@ -66,20 +66,20 @@ const ProgressMiniDashboard = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{averageScore}%</div>
+            <div className="text-xl sm:text-2xl font-bold text-primary">{averageScore}%</div>
           </CardContent>
         </Card>
       </div>
       {/* Overall Accuracy */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <Target className="h-4 w-4 text-primary" />
+        <CardHeader className="pb-2 sm:pb-3">
+          <CardTitle className="text-xs sm:text-sm font-semibold flex items-center gap-2">
+            <Target className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
             Overall Accuracy
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold text-primary">{accuracyOverall}%</div>
+          <div className="text-2xl sm:text-3xl font-bold text-primary">{accuracyOverall}%</div>
           <p className="text-xs text-muted-foreground mt-1">
             Based on your last 10 attempts
           </p>
@@ -88,21 +88,21 @@ const ProgressMiniDashboard = () => {
 
       {/* Recent Progress Chart */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold">Recent Progress</CardTitle>
+        <CardHeader className="pb-2 sm:pb-3">
+          <CardTitle className="text-xs sm:text-sm font-semibold">Recent Progress</CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={150}>
+          <ResponsiveContainer width="100%" height={120}>
             <LineChart data={recentAttempts}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis
                 dataKey="date"
-                tick={{ fontSize: 10 }}
+                tick={{ fontSize: 9 }}
                 stroke="hsl(var(--muted-foreground))"
               />
               <YAxis
                 domain={[0, 100]}
-                tick={{ fontSize: 10 }}
+                tick={{ fontSize: 9 }}
                 stroke="hsl(var(--muted-foreground))"
               />
               <Tooltip
@@ -110,6 +110,7 @@ const ProgressMiniDashboard = () => {
                   backgroundColor: "hsl(var(--card))",
                   border: "1px solid hsl(var(--border))",
                   borderRadius: "0.5rem",
+                  fontSize: "12px",
                 }}
               />
               <Line
@@ -117,7 +118,7 @@ const ProgressMiniDashboard = () => {
                 dataKey="accuracy"
                 stroke="hsl(var(--primary))"
                 strokeWidth={2}
-                dot={{ fill: "hsl(var(--primary))" }}
+                dot={{ fill: "hsl(var(--primary))", r: 3 }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -126,16 +127,16 @@ const ProgressMiniDashboard = () => {
 
       {/* Strengths */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-success" />
+        <CardHeader className="pb-2 sm:pb-3">
+          <CardTitle className="text-xs sm:text-sm font-semibold flex items-center gap-2">
+            <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-success" />
             Top Strengths
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2">
+          <div className="flex flex-wrap gap-1.5 sm:gap-2">
             {strengths.slice(0, 3).map((strength) => (
-              <Badge key={strength} className="bg-success text-success-foreground">
+              <Badge key={strength} className="bg-success text-success-foreground text-xs">
                 {strength}
               </Badge>
             ))}
@@ -145,18 +146,19 @@ const ProgressMiniDashboard = () => {
 
       {/* Weaknesses */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <TrendingDown className="h-4 w-4 text-destructive" />
+        <CardHeader className="pb-2 sm:pb-3">
+          <CardTitle className="text-xs sm:text-sm font-semibold flex items-center gap-2">
+            <TrendingDown className="h-3 w-3 sm:h-4 sm:w-4 text-destructive" />
             Areas to Improve
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2">
+          <div className="flex flex-wrap gap-1.5 sm:gap-2">
             {weaknesses.slice(0, 3).map((weakness) => (
               <Badge
                 key={weakness}
                 variant="destructive"
+                className="text-xs"
               >
                 {weakness}
               </Badge>

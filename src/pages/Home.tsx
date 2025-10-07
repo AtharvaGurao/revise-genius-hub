@@ -9,21 +9,21 @@ const Home = () => {
       <section className="relative overflow-hidden bg-gradient-to-br from-primary via-primary-hover to-accent">
         <div className="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMzLjMxNCAwIDYgMi42ODYgNiA2cy0yLjY4NiA2LTYgNi02LTIuNjg2LTYtNiAyLjY4Ni02IDYtNnoiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyIi8+PC9nPjwvc3ZnPg==')]" />
         
-        <div className="container mx-auto px-4 py-20 md:py-32 relative z-10">
-          <div className="max-w-3xl mx-auto text-center text-white animate-slide-up">
-            <h1 className="text-4xl md:text-6xl font-heading font-bold mb-6">
+        <div className="container mx-auto px-3 sm:px-4 py-12 sm:py-20 md:py-32 relative z-10">
+          <div className="max-w-3xl mx-auto text-center text-white animate-slide-up px-2">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-heading font-bold mb-4 sm:mb-6 leading-tight">
               Master Your NCERT <br />
               <span className="text-accent-foreground">Smart Revision</span> Starts Here
             </h1>
-            <p className="text-lg md:text-xl mb-8 text-white/90">
+            <p className="text-base sm:text-lg md:text-xl mb-6 sm:mb-8 text-white/90">
               Upload your coursebooks, generate intelligent quizzes, track your progress,
               and chat with AI—all designed for Class XI-XII students.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
               <Button
                 asChild
                 size="lg"
-                className="bg-accent hover:bg-accent-hover text-accent-foreground font-semibold text-lg px-8 py-6 shadow-xl"
+                className="bg-accent hover:bg-accent-hover text-accent-foreground font-semibold text-base sm:text-lg px-6 sm:px-8 py-5 sm:py-6 shadow-xl"
               >
                 <Link to="/app">Start Revising</Link>
               </Button>
@@ -31,7 +31,7 @@ const Home = () => {
                 asChild
                 size="lg"
                 variant="outline"
-                className="bg-white/10 hover:bg-white/20 text-white border-white/30 font-semibold text-lg px-8 py-6 backdrop-blur-sm"
+                className="bg-white/10 hover:bg-white/20 text-white border-white/30 font-semibold text-base sm:text-lg px-6 sm:px-8 py-5 sm:py-6 backdrop-blur-sm"
               >
                 <Link to="/history">View Progress</Link>
               </Button>
@@ -51,13 +51,13 @@ const Home = () => {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 container mx-auto px-4">
+      <section className="py-12 sm:py-16 md:py-20 container mx-auto px-3 sm:px-4">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-heading font-bold text-center mb-12">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-heading font-bold text-center mb-8 sm:mb-12 px-2">
             Everything You Need to Excel
           </h2>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
             <FeatureCard
               icon={<BookOpen className="h-10 w-10" />}
               title="PDF Viewer"
@@ -83,19 +83,19 @@ const Home = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-secondary">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl md:text-4xl font-heading font-bold mb-6">
+      <section className="py-12 sm:py-16 md:py-20 bg-secondary">
+        <div className="container mx-auto px-3 sm:px-4 text-center">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-heading font-bold mb-4 sm:mb-6 px-2">
             Ready to Ace Your Exams?
           </h2>
-          <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg text-muted-foreground mb-6 sm:mb-8 max-w-2xl mx-auto px-4">
             Join thousands of students who are revising smarter with SmartRevise.
             Start your journey today—it's fast, easy, and free to try.
           </p>
           <Button
             asChild
             size="lg"
-            className="bg-primary hover:bg-primary-hover text-primary-foreground font-semibold text-lg px-8 py-6"
+            className="bg-primary hover:bg-primary-hover text-primary-foreground font-semibold text-base sm:text-lg px-6 sm:px-8 py-5 sm:py-6"
           >
             <Link to="/app">Get Started Now</Link>
           </Button>
@@ -103,8 +103,8 @@ const Home = () => {
       </section>
 
       {/* Footer */}
-      <footer className="py-8 border-t">
-        <div className="container mx-auto px-4 text-center text-muted-foreground">
+      <footer className="py-6 sm:py-8 border-t">
+        <div className="container mx-auto px-3 sm:px-4 text-center text-muted-foreground text-sm">
           <p>&copy; 2025 SmartRevise. Built for Indian students, by passionate educators.</p>
         </div>
       </footer>
@@ -122,12 +122,12 @@ const FeatureCard = ({
   description: string;
 }) => {
   return (
-    <div className="bg-card border rounded-xl p-6 hover:shadow-lg transition-shadow duration-300 group">
-      <div className="text-accent mb-4 group-hover:scale-110 transition-transform duration-300">
+    <div className="bg-card border rounded-lg sm:rounded-xl p-4 sm:p-6 hover:shadow-lg transition-shadow duration-300 group">
+      <div className="text-accent mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300">
         {icon}
       </div>
-      <h3 className="text-xl font-heading font-semibold mb-2">{title}</h3>
-      <p className="text-muted-foreground">{description}</p>
+      <h3 className="text-lg sm:text-xl font-heading font-semibold mb-2">{title}</h3>
+      <p className="text-sm sm:text-base text-muted-foreground">{description}</p>
     </div>
   );
 };

@@ -138,25 +138,25 @@ const ChatUI = ({ selectedPdfId }: ChatUIProps) => {
   return (
     <div className="h-full flex flex-col bg-muted/20">
       {/* Chat Header */}
-      <div className="bg-card border-b px-4 py-3 flex items-center justify-between">
-        <h3 className="font-heading font-semibold">{currentChat.title}</h3>
-        <Button onClick={handleNewChat} size="sm" variant="outline">
-          <Plus className="h-4 w-4 mr-2" />
-          New Chat
+      <div className="bg-card border-b px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-2">
+        <h3 className="font-heading font-semibold text-sm sm:text-base truncate">{currentChat.title}</h3>
+        <Button onClick={handleNewChat} size="sm" variant="outline" className="flex-shrink-0">
+          <Plus className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+          <span className="hidden sm:inline">New Chat</span>
         </Button>
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-        <div className="max-w-4xl mx-auto space-y-4">
+      <ScrollArea className="flex-1 p-3 sm:p-4" ref={scrollRef}>
+        <div className="max-w-4xl mx-auto space-y-3 sm:space-y-4">
           {currentChat.messages.length === 0 ? (
-            <div className="text-center py-12 space-y-4">
-              <Bot className="h-16 w-16 mx-auto text-muted-foreground" />
+            <div className="text-center py-8 sm:py-12 space-y-3 sm:space-y-4 px-4">
+              <Bot className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-muted-foreground" />
               <div>
-                <h3 className="font-heading font-semibold text-xl mb-2">
+                <h3 className="font-heading font-semibold text-lg sm:text-xl mb-2">
                   Ask me anything about your PDFs
                 </h3>
-                <p className="text-muted-foreground">
+                <p className="text-sm sm:text-base text-muted-foreground">
                   I can help explain concepts, answer questions, and provide citations from your
                   coursebooks.
                 </p>
@@ -166,22 +166,22 @@ const ChatUI = ({ selectedPdfId }: ChatUIProps) => {
             currentChat.messages.map((msg) => (
               <div
                 key={msg.id}
-                className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                className={`flex gap-2 sm:gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 {msg.role === "assistant" && (
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                    <Bot className="h-5 w-5 text-primary-foreground" />
+                  <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary flex items-center justify-center">
+                    <Bot className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
                   </div>
                 )}
 
                 <Card
-                  className={`max-w-[80%] p-4 ${
+                  className={`max-w-[85%] sm:max-w-[80%] p-3 sm:p-4 ${
                     msg.role === "user"
                       ? "bg-primary text-primary-foreground"
                       : "bg-card"
                   }`}
                 >
-                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                  <p className="text-xs sm:text-sm whitespace-pre-wrap break-words">{msg.content}</p>
 
                   {msg.citations && msg.citations.length > 0 && (
                     <div className="mt-3 space-y-2 border-t pt-3">
@@ -202,8 +202,8 @@ const ChatUI = ({ selectedPdfId }: ChatUIProps) => {
                 </Card>
 
                 {msg.role === "user" && (
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-accent flex items-center justify-center">
-                    <User className="h-5 w-5 text-accent-foreground" />
+                  <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-accent flex items-center justify-center">
+                    <User className="h-4 w-4 sm:h-5 sm:w-5 text-accent-foreground" />
                   </div>
                 )}
               </div>
@@ -213,18 +213,23 @@ const ChatUI = ({ selectedPdfId }: ChatUIProps) => {
       </ScrollArea>
 
       {/* Input */}
-      <div className="bg-card border-t p-4">
+      <div className="bg-card border-t p-2 sm:p-4">
         <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto">
-          <div className="flex gap-2">
+          <div className="flex gap-1 sm:gap-2">
             <Input
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
-              placeholder="Ask a question about your PDFs..."
+              placeholder="Ask about your PDFs..."
               disabled={isLoading}
-              className="flex-1"
+              className="flex-1 text-sm sm:text-base"
             />
-            <Button type="submit" disabled={isLoading || !inputMessage.trim()}>
-              <Send className="h-4 w-4" />
+            <Button 
+              type="submit" 
+              disabled={isLoading || !inputMessage.trim()}
+              size="sm"
+              className="flex-shrink-0"
+            >
+              <Send className="h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
           </div>
         </form>

@@ -106,18 +106,18 @@ const YouTubeRecommender = ({ selectedPdfId, scope }: YouTubeRecommenderProps) =
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 border-b bg-card">
+      <div className="p-3 sm:p-4 border-b bg-card">
         <div className="flex items-center gap-2 mb-2">
-          <Youtube className="h-5 w-5 text-destructive" />
-          <h3 className="font-heading font-semibold">Recommended Videos</h3>
+          <Youtube className="h-4 w-4 sm:h-5 sm:w-5 text-destructive flex-shrink-0" />
+          <h3 className="font-heading font-semibold text-sm sm:text-base">Recommended Videos</h3>
         </div>
         <p className="text-xs text-muted-foreground">
           Based on {scope === "all" ? "all your PDFs" : "selected PDF"}
         </p>
       </div>
 
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4">
+      <ScrollArea className="flex-1 p-3 sm:p-4">
+        <div className="space-y-3 sm:space-y-4">
           {videos.length === 0 ? (
             <div className="text-center py-8">
               <Youtube className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
@@ -132,22 +132,22 @@ const YouTubeRecommender = ({ selectedPdfId, scope }: YouTubeRecommenderProps) =
                   <img
                     src={video.thumbnail}
                     alt={video.title}
-                    className="w-full h-40 object-cover"
+                    className="w-full h-32 sm:h-40 object-cover"
                   />
-                  <div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
+                  <div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">
                     {video.duration}
                   </div>
                   <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
-                    <Play className="h-12 w-12 text-white" />
+                    <Play className="h-10 w-10 sm:h-12 sm:w-12 text-white" />
                   </div>
                 </div>
-                <div className="p-4 space-y-2">
-                  <h4 className="font-medium text-sm line-clamp-2 leading-snug">
+                <div className="p-3 sm:p-4 space-y-2">
+                  <h4 className="font-medium text-xs sm:text-sm line-clamp-2 leading-snug">
                     {video.title}
                   </h4>
                   <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">{video.channel}</p>
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <p className="text-xs text-muted-foreground truncate">{video.channel}</p>
                       {video.views && (
                         <p className="text-xs text-muted-foreground">{video.views}</p>
                       )}
@@ -156,10 +156,10 @@ const YouTubeRecommender = ({ selectedPdfId, scope }: YouTubeRecommenderProps) =
                   <Button
                     size="sm"
                     variant="outline"
-                    className="w-full"
+                    className="w-full text-xs"
                     onClick={() => handleOpenVideo(video.videoId)}
                   >
-                    <ExternalLink className="h-3 w-3 mr-2" />
+                    <ExternalLink className="h-3 w-3 mr-1.5" />
                     Watch on YouTube
                   </Button>
                 </div>
@@ -169,11 +169,11 @@ const YouTubeRecommender = ({ selectedPdfId, scope }: YouTubeRecommenderProps) =
         </div>
       </ScrollArea>
 
-      <div className="p-4 border-t bg-card">
+      <div className="p-3 sm:p-4 border-t bg-card">
         <Button
           variant="outline"
           size="sm"
-          className="w-full"
+          className="w-full text-xs sm:text-sm"
           onClick={fetchRecommendations}
           disabled={isLoading}
         >
