@@ -63,40 +63,126 @@ serve(async (req) => {
     const { pdfIds, scope } = await req.json();
     console.log('Received request:', { pdfIds, scope, userId: user.id });
 
-    // Fetch PDF(s) metadata
-    let pdfQuery = supabaseClient
-      .from('pdfs')
-      .select('id, title')
-      .eq('user_id', user.id);
+    // Get target PDF IDs
+    let targetPdfIds = pdfIds || [];
+    if (scope === 'all' || targetPdfIds.length === 0) {
+      const { data: allPdfs, error: pdfError } = await supabaseClient
+        .from('pdfs')
+        .select('id')
+        .eq('user_id', user.id);
 
-    if (scope === 'selected' && pdfIds && pdfIds.length > 0) {
-      pdfQuery = pdfQuery.in('id', pdfIds);
+      if (pdfError) {
+        console.error('Error fetching PDFs:', pdfError);
+        return new Response(
+          JSON.stringify({ videos: [], message: 'Error fetching PDFs' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      targetPdfIds = allPdfs?.map(pdf => pdf.id) || [];
     }
 
-    const { data: pdfs, error: pdfError } = await pdfQuery;
-    
-    if (pdfError) {
-      console.error('Error fetching PDFs:', pdfError);
-      throw pdfError;
-    }
-
-    if (!pdfs || pdfs.length === 0) {
+    if (targetPdfIds.length === 0) {
       console.log('No PDFs found');
       return new Response(
-        JSON.stringify({ videos: [] }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ videos: [], message: 'No PDFs in your library' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Extract keywords from PDF titles
-    const keywords = pdfs
-      .map(pdf => pdf.title)
-      .join(' ')
-      .replace(/\.pdf$/i, '')
-      .replace(/[-_]/g, ' ')
-      .trim();
+    // Fetch PDF chunks (actual content) for AI analysis
+    console.log('Fetching PDF content for AI analysis...');
+    const { data: chunks, error: chunksError } = await supabaseClient
+      .from('pdf_chunks')
+      .select('chunk_text, page_number')
+      .in('pdf_id', targetPdfIds)
+      .order('page_number', { ascending: true })
+      .limit(20); // Limit to first 20 chunks
 
-    console.log('Extracted keywords:', keywords);
+    if (chunksError) {
+      console.error('Error fetching PDF chunks:', chunksError);
+      return new Response(
+        JSON.stringify({ videos: [], message: 'Error analyzing PDF content' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!chunks || chunks.length === 0) {
+      console.log('No PDF content found');
+      return new Response(
+        JSON.stringify({ videos: [], message: 'PDF not yet processed. Please wait and try again.' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Combine chunks for AI analysis
+    const contentSample = chunks
+      .map(chunk => chunk.chunk_text)
+      .join('\n\n')
+      .slice(0, 3000); // Limit to 3000 chars
+
+    console.log('Analyzing PDF content with AI to extract topics...');
+    
+    // Use Lovable AI to extract key educational topics
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    if (!lovableApiKey) {
+      console.error('LOVABLE_API_KEY not configured');
+      return new Response(
+        JSON.stringify({ videos: [], message: 'AI service not configured' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    let aiResponse;
+    try {
+      aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${lovableApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an educational content analyzer. Extract 3-5 key study topics, concepts, or subject areas from educational text. Return only the topics as a comma-separated list.'
+            },
+            {
+              role: 'user',
+              content: `Extract main educational topics from this content:\n\n${contentSample}`
+            }
+          ],
+          temperature: 0.3
+        }),
+      });
+
+      if (!aiResponse.ok) {
+        console.error('AI API error:', await aiResponse.text());
+        return new Response(
+          JSON.stringify({ videos: [], message: 'Failed to analyze content with AI' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } catch (aiError) {
+      console.error('AI request failed:', aiError);
+      return new Response(
+        JSON.stringify({ videos: [], message: 'AI analysis unavailable' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const aiData = await aiResponse.json();
+    const keywords = aiData.choices?.[0]?.message?.content?.trim() || '';
+    
+    console.log('AI extracted topics:', keywords);
+
+    if (!keywords) {
+      return new Response(
+        JSON.stringify({ videos: [], message: 'Could not identify topics from PDF' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Get YouTube API key
     const youtubeApiKey = Deno.env.get('YOUTUBE_API_KEY');
