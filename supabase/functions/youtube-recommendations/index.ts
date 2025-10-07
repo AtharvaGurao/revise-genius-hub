@@ -16,6 +16,8 @@ interface VideoRecommendation {
 }
 
 serve(async (req) => {
+  console.log('YouTube recommendations function called');
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -24,6 +26,8 @@ serve(async (req) => {
   try {
     // Get the authorization token
     const authHeader = req.headers.get('Authorization');
+    console.log('Auth header present:', !!authHeader);
+    
     if (!authHeader) {
       console.error('No authorization header provided');
       return new Response(
@@ -42,13 +46,14 @@ serve(async (req) => {
       }
     );
 
+    console.log('Getting user from token...');
     // Get user from token
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     
     if (userError) {
-      console.error('Error getting user:', userError);
+      console.error('Error getting user:', userError.message);
       return new Response(
-        JSON.stringify({ error: 'Invalid authentication token' }),
+        JSON.stringify({ error: `Authentication failed: ${userError.message}` }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -56,10 +61,12 @@ serve(async (req) => {
     if (!user) {
       console.error('No user found from token');
       return new Response(
-        JSON.stringify({ error: 'User not found' }),
+        JSON.stringify({ error: 'User not authenticated' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    
+    console.log('User authenticated:', user.id);
 
     const { pdfIds, scope } = await req.json();
     console.log('Received request:', { pdfIds, scope, userId: user.id });
