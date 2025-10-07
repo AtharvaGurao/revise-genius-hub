@@ -22,6 +22,7 @@ interface Question {
   id: string;
   type: QuestionType;
   question: string;
+  topic?: string;
   choices?: string[];
   answerKey?: number;
   explanation?: string;
@@ -181,7 +182,7 @@ const QuizPanel = ({ scope, selectedPdfId }: QuizPanelProps) => {
               ? String(question.choices?.[question.answerKey] || "")
               : "",
             is_correct: result.correct,
-            topic: null, // TODO: Extract topic from question if available
+            topic: question.topic || null,
           };
         });
 

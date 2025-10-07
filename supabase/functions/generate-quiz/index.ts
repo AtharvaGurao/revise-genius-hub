@@ -65,9 +65,11 @@ serve(async (req) => {
             role: 'user',
             content: `Generate ${count} questions from "${pdfContext}". Types: ${selectedTypes}. 
 
-For MCQs: Provide question, 4 options (A, B, C, D), correct answer, and explanation.
-For SAQs: Provide question and model answer (2-3 sentences).
-For LAQs: Provide question and comprehensive answer (1 paragraph).
+For MCQs: Provide question, 4 options (A, B, C, D), correct answer, explanation, and topic.
+For SAQs: Provide question, model answer (2-3 sentences), and topic.
+For LAQs: Provide question, comprehensive answer (1 paragraph), and topic.
+
+IMPORTANT: Each question must include a topic field identifying the subject area (e.g., "Physics - Mechanics", "Chemistry - Organic Reactions", "Biology - Cell Structure").
 
 Make questions curriculum-aligned and exam-relevant.`
           }
@@ -89,6 +91,7 @@ Make questions curriculum-aligned and exam-relevant.`
                         id: { type: 'string' },
                         type: { type: 'string', enum: ['MCQ', 'SAQ', 'LAQ'] },
                         question: { type: 'string' },
+                        topic: { type: 'string' },
                         choices: {
                           type: 'array',
                           items: { type: 'string' }
@@ -96,7 +99,7 @@ Make questions curriculum-aligned and exam-relevant.`
                         answerKey: { type: 'number' },
                         explanation: { type: 'string' }
                       },
-                      required: ['id', 'type', 'question', 'explanation']
+                      required: ['id', 'type', 'question', 'topic', 'explanation']
                     }
                   }
                 },
