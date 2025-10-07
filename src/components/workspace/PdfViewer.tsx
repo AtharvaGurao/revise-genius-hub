@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -7,7 +7,10 @@ import {
   ZoomIn,
   ZoomOut,
   FileText,
+  Loader2,
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface PdfViewerProps {
   pdfId: string | null;
@@ -19,25 +22,53 @@ const PdfViewer = ({ pdfId }: PdfViewerProps) => {
   const [totalPages, setTotalPages] = useState(120);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [pdfTitle, setPdfTitle] = useState("");
+  const { toast } = useToast();
 
-  // In production, fetch PDF metadata and URL when pdfId changes
-  // useEffect(() => {
-  //   if (!pdfId) return;
-  //   const fetchPdfData = async () => {
-  //     setIsLoading(true);
-  //     try {
-  //       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/pdf/${pdfId}`);
-  //       const data = await response.json();
-  //       setPdfUrl(data.url);
-  //       setTotalPages(data.pages);
-  //     } catch (error) {
-  //       console.error('Failed to load PDF:', error);
-  //     } finally {
-  //       setIsLoading(false);
-  //     }
-  //   };
-  //   fetchPdfData();
-  // }, [pdfId]);
+  // Fetch PDF data when pdfId changes
+  useEffect(() => {
+    if (!pdfId) {
+      setPdfUrl(null);
+      return;
+    }
+
+    const fetchPdfData = async () => {
+      setIsLoading(true);
+      try {
+        // Get PDF metadata
+        const { data: pdfData, error: pdfError } = await supabase
+          .from('pdfs')
+          .select('*')
+          .eq('id', pdfId)
+          .single();
+
+        if (pdfError) throw pdfError;
+
+        setPdfTitle(pdfData.title);
+        setTotalPages(pdfData.pages || 120);
+
+        // Get signed URL for the PDF file
+        const { data: urlData, error: urlError } = await supabase.storage
+          .from('pdfs')
+          .createSignedUrl(pdfData.file_path, 3600); // 1 hour expiry
+
+        if (urlError) throw urlError;
+
+        setPdfUrl(urlData.signedUrl);
+      } catch (error: any) {
+        console.error('Failed to load PDF:', error);
+        toast({
+          title: "Failed to load PDF",
+          description: error.message || "Could not load the PDF file.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPdfData();
+  }, [pdfId, toast]);
 
   const handlePrevPage = () => {
     if (currentPage > 1) setCurrentPage(currentPage - 1);
@@ -73,6 +104,17 @@ const PdfViewer = ({ pdfId }: PdfViewerProps) => {
           <p className="text-muted-foreground">
             Select a PDF from the library on the left, or upload a new one to get started.
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="h-full flex items-center justify-center bg-muted/20">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-12 w-12 mx-auto animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading PDF...</p>
         </div>
       </div>
     );
@@ -132,68 +174,30 @@ const PdfViewer = ({ pdfId }: PdfViewerProps) => {
       </div>
 
       {/* PDF Canvas */}
-      <div className="flex-1 overflow-auto p-3 sm:p-6">
-        <div
-          className="mx-auto bg-white shadow-lg"
-          style={{
-            width: `${zoom}%`,
-            minHeight: "800px",
-          }}
-        >
-          {/* 
-            In production, render actual PDF using react-pdf or pdf.js:
-            
-            import { Document, Page } from 'react-pdf';
-            
-            <Document file={pdfUrl} onLoadSuccess={({ numPages }) => setTotalPages(numPages)}>
-              <Page pageNumber={currentPage} scale={zoom / 100} />
-            </Document>
-          */}
-          <div className="p-4 sm:p-6 md:p-8 space-y-4 text-gray-800">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b pb-4">
-              <h2 className="text-lg sm:text-xl md:text-2xl font-bold">NCERT Physics Class XI</h2>
-              <span className="text-xs sm:text-sm text-gray-500">Page {currentPage} of {totalPages}</span>
-            </div>
-            
-            <div className="bg-blue-50 border-l-4 border-blue-500 p-4">
-              <p className="text-sm text-blue-800">
-                <strong>Note:</strong> This is a placeholder PDF viewer. In production, this will render actual PDF content from <code className="bg-blue-100 px-2 py-0.5 rounded">{`\${VITE_API_BASE_URL}/pdf/${pdfId}`}</code>
-              </p>
-            </div>
-
-            <h3 className="text-base sm:text-lg md:text-xl font-semibold mt-6">Chapter 3: Motion in a Straight Line</h3>
-            
-            <div className="space-y-4">
-              <p className="leading-relaxed">
-                <strong>3.1 Introduction</strong>
-              </p>
-              <p className="leading-relaxed">
-                Motion is one of the most fundamental concepts in physics. When we describe the motion of an object, we specify how its position changes with time. The simplest case of motion is that of a particle moving along a straight line.
-              </p>
-              
-              <p className="leading-relaxed">
-                <strong>3.2 Position and Displacement</strong>
-              </p>
-              <p className="leading-relaxed">
-                To describe motion, we need to specify the position of the object. Position is the location of the particle with respect to a chosen reference point, considered to be the origin of the coordinate system.
-              </p>
-
-              <div className="bg-gray-100 p-4 rounded-lg my-4">
-                <p className="font-semibold mb-2">Key Concepts:</p>
-                <ul className="list-disc list-inside space-y-1 text-sm">
-                  <li>Displacement is a vector quantity</li>
-                  <li>Distance is a scalar quantity</li>
-                  <li>Velocity = Displacement / Time</li>
-                  <li>Speed = Distance / Time</li>
-                </ul>
-              </div>
-
-              <p className="leading-relaxed">
-                The displacement of a particle is the change in its position. If a particle moves from position x₁ to position x₂, its displacement Δx is given by: Δx = x₂ - x₁
+      <div className="flex-1 overflow-auto p-3 sm:p-6 bg-gray-100">
+        {pdfUrl ? (
+          <div className="h-full flex items-center justify-center">
+            <iframe
+              src={pdfUrl}
+              className="w-full h-full border-0 shadow-lg"
+              style={{
+                minHeight: "600px",
+                transform: `scale(${zoom / 100})`,
+                transformOrigin: 'top center',
+              }}
+              title={pdfTitle || "PDF Viewer"}
+            />
+          </div>
+        ) : (
+          <div className="h-full flex items-center justify-center">
+            <div className="text-center space-y-4 max-w-md px-4">
+              <FileText className="h-16 w-16 mx-auto text-muted-foreground" />
+              <p className="text-muted-foreground">
+                Unable to load PDF. Please try uploading again.
               </p>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
