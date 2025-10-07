@@ -28,11 +28,11 @@ function chunkText(text: string, pageNumber: number, chunkSize = 500): Array<{te
   return chunks;
 }
 
-// Generate embedding using OpenAI text-embedding-3-large
+// Generate embedding using Lovable AI
 async function generateEmbedding(text: string, apiKey: string): Promise<number[]> {
-  console.log('Generating embedding with OpenAI text-embedding-3-large...');
+  console.log('Generating embedding with Lovable AI...');
   
-  const response = await fetch('https://api.openai.com/v1/embeddings', {
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -41,13 +41,13 @@ async function generateEmbedding(text: string, apiKey: string): Promise<number[]
     body: JSON.stringify({
       model: 'text-embedding-3-large',
       input: text,
-      dimensions: 1536, // Match database vector dimension
+      dimensions: 1536,
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('OpenAI embedding generation failed:', response.status, errorText);
+    console.error('Lovable AI embedding generation failed:', response.status, errorText);
     throw new Error(`Embedding generation failed: ${response.status}`);
   }
 
@@ -68,8 +68,8 @@ serve(async (req) => {
       throw new Error('PDF ID is required');
     }
 
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not configured');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -158,7 +158,7 @@ serve(async (req) => {
 
     // Generate embeddings and store chunks
     for (const chunk of allChunks) {
-      const embedding = await generateEmbedding(chunk.text, OPENAI_API_KEY);
+      const embedding = await generateEmbedding(chunk.text, LOVABLE_API_KEY);
       
       const { error: insertError } = await supabase
         .from('pdf_chunks')
