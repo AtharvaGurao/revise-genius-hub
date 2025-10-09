@@ -81,20 +81,29 @@ const Settings = () => {
         {/* Appearance */}
         <Card>
           <CardHeader>
-            <CardTitle>Appearance</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-lg sm:text-xl">Appearance</CardTitle>
+            <CardDescription className="text-sm">
               Customize the look and feel of the application
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="dark-mode" className="cursor-pointer">
-                Dark Mode
-              </Label>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+              <div className="space-y-1">
+                <Label 
+                  htmlFor="dark-mode" 
+                  className="cursor-pointer text-sm sm:text-base font-medium"
+                >
+                  Dark Mode
+                </Label>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Switch between light and dark themes
+                </p>
+              </div>
               <Switch
                 id="dark-mode"
                 checked={darkMode}
                 onCheckedChange={setDarkMode}
+                className="self-start sm:self-center"
               />
             </div>
           </CardContent>
