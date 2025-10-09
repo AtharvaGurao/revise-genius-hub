@@ -72,6 +72,7 @@ This project is built with:
 - **React Query** - Server state management (ready for backend integration)
 - **Recharts** - Data visualization for progress tracking
 - **Lucide React** - Icon library
+-**n8n** - for rag function to chat with pdf
 
 ## 📂 Project Structure
 
@@ -131,6 +132,101 @@ Read more: [Setting up a custom domain](https://docs.lovable.dev/features/custom
 - Touch-friendly controls with appropriate sizing for mobile devices
 - Smooth animations and transitions throughout the app
 - Backend API calls are prepared but using mock data until connected
+
+
+-what' done:
+
+⸻
+
+⚙️ n8n Workflows Overview
+
+This project integrates two n8n workflows to handle PDF data ingestion, vector storage, and AI-powered chat responses using OpenAI and Pinecone.
+
+⸻
+
+🧠 Workflow 1: Document Ingestion & Embedding
+
+File: workflow_1
+Purpose: Upload and process PDFs into vector embeddings for semantic search and context retrieval.
+
+Workflow Steps:
+	1.	Webhook Trigger – Listens for POST requests from the web app when a user uploads a PDF.
+	2.	Default Data Loader – Loads the PDF content from the incoming file stream.
+	3.	Recursive Character Text Splitter – Splits large text into smaller overlapping chunks for efficient embedding and context accuracy.
+	4.	OpenAI Embeddings – Converts each text chunk into high-dimensional vector embeddings using the OpenAI Embeddings API.
+	5.	Pinecone Vector Store – Stores the embeddings along with metadata (like filename, user ID, and timestamp) for future semantic retrieval by the chatbot.
+
+Outcome:
+Each uploaded PDF is processed, vectorized, and stored in Pinecone, enabling contextual and document-specific question answering in the chat interface.
+
+⸻
+
+💬 Workflow 2: AI Chat Agent with Contextual Retrieval
+
+File: workflow_2
+Purpose: Provide intelligent chat responses using the stored PDF knowledge base.
+
+Workflow Steps:
+	1.	When Chat Message Received (Chat Trigger) – Handles incoming messages from the frontend chat UI or the n8n embedded chat endpoint.
+	2.	AI Agent Node – Core logic unit that manages context, memory, and interaction with OpenAI’s Chat Model.
+	3.	OpenAI Chat Model – Generates responses using the GPT model, considering user messages, memory, and document context.
+	4.	Simple Memory Node – Maintains short-term conversational context to enable follow-up questions and coherent dialogue.
+	5.	Pinecone Vector Store (Tool Integration) – Fetches the most relevant document chunks based on user queries to ground responses in PDF content.
+	6.	OpenAI Embeddings Node – Generates embeddings for the current query to perform similarity searches within Pinecone.
+
+Outcome:
+This workflow allows users to chat with their uploaded PDFs — the AI retrieves the most relevant sections from Pinecone and crafts detailed, accurate answers.
+
+⸻
+
+🔗 Combined Functionality
+
+Together, both workflows enable a Retrieval-Augmented Generation (RAG) system:
+	•	Workflow 1 handles document processing and storage.
+
+  <img width="1054" height="608" alt="Screenshot 2025-10-09 at 10 27 15 PM" src="https://github.com/user-attachments/assets/99af257d-048c-41e1-858e-d66b0ff0f60c" />
+
+	•	Workflow 2 uses the stored data to generate context-aware chat responses.
+  
+  <img width="1020" height="623" alt="Screenshot 2025-10-09 at 10 27 51 PM" src="https://github.com/user-attachments/assets/0c58941a-fa9c-4064-8795-e6ff988e237a" />
+
+
+This setup powers the “Chat with PDF” feature in the SmartRevise web application, enabling users to query, learn, and revise directly from their course materials.
+
+
+2)pdf viwer
+3)Quiz Generator Engine
+4)Progress tracking
+5)RAG answers with citations
+
+
+
+-did you use any LLM tools? For what purposes?
+i have used loveable for frontend.
+-loveable cloud and n8n for backend
+
+⸻
+
+Would you like me to also add a diagram section (in Markdown or Mermaid format) for these workflows to include visually in your README?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## 📄 License
 
