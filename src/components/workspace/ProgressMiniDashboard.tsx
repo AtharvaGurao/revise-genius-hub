@@ -11,7 +11,25 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+
+interface QuizAttemptDetail {
+  id: string;
+  date: Date;
+  topic: string;
+  score: { raw: number; total: number; percent: number };
+  accuracy: number;
+  questionTypes: string[];
+}
 
 const ProgressMiniDashboard = () => {
   const [progressData, setProgressData] = useState({
@@ -22,6 +40,7 @@ const ProgressMiniDashboard = () => {
     totalAttempts: 0,
     averageScore: 0,
   });
+  const [detailedAttempts, setDetailedAttempts] = useState<QuizAttemptDetail[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -106,6 +125,54 @@ const ProgressMiniDashboard = () => {
         accuracy: Math.round(attempt.score_percentage),
       })).reverse();
 
+      // Fetch detailed attempts for the table
+      const { data: allAttemptsData, error: allAttemptsError } = await supabase
+        .from("quiz_attempts_v2")
+        .select(`
+          id,
+          created_at,
+          quiz_type,
+          total_questions,
+          correct_answers,
+          score_percentage,
+          pdf_id,
+          pdfs (
+            title
+          )
+        `)
+        .eq("user_id", session.session.user.id)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (allAttemptsError) throw allAttemptsError;
+
+      // Fetch question types for each attempt
+      const detailedAttemptsData = await Promise.all(
+        (allAttemptsData || []).map(async (attempt) => {
+          const { data: answers } = await supabase
+            .from("quiz_answers")
+            .select("question_type")
+            .eq("attempt_id", attempt.id);
+
+          const uniqueTypes = [...new Set(answers?.map(a => a.question_type) || [])];
+
+          return {
+            id: attempt.id,
+            date: new Date(attempt.created_at),
+            topic: (attempt.pdfs as any)?.title || "General Quiz",
+            score: {
+              raw: attempt.correct_answers,
+              total: attempt.total_questions,
+              percent: Math.round(attempt.score_percentage || 0),
+            },
+            accuracy: Math.round(attempt.score_percentage || 0),
+            questionTypes: uniqueTypes,
+          };
+        })
+      );
+
+      setDetailedAttempts(detailedAttemptsData);
+
       setProgressData({
         accuracyOverall: Math.round((summaryData as any).overall_accuracy || 0),
         recentAttempts,
@@ -122,6 +189,12 @@ const ProgressMiniDashboard = () => {
   };
 
   const { accuracyOverall, recentAttempts, strengths, weaknesses, totalAttempts, averageScore } = progressData;
+
+  const getAccuracyColor = (accuracy: number) => {
+    if (accuracy >= 80) return "success";
+    if (accuracy >= 60) return "default";
+    return "destructive";
+  };
 
   if (loading) {
     return (
@@ -264,6 +337,69 @@ const ProgressMiniDashboard = () => {
                 {weakness}
               </Badge>
             ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Recent Quiz Attempts Table */}
+      <Card>
+        <CardHeader className="pb-2 sm:pb-3">
+          <CardTitle className="text-xs sm:text-sm font-semibold">Recent Quiz Attempts</CardTitle>
+        </CardHeader>
+        <CardContent className="px-0 sm:px-6">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs whitespace-nowrap">Date</TableHead>
+                  <TableHead className="text-xs whitespace-nowrap">Topic</TableHead>
+                  <TableHead className="text-xs whitespace-nowrap">Score</TableHead>
+                  <TableHead className="text-xs whitespace-nowrap hidden sm:table-cell">Accuracy</TableHead>
+                  <TableHead className="text-xs whitespace-nowrap hidden md:table-cell">Types</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {detailedAttempts.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-6 text-xs text-muted-foreground">
+                      No attempts recorded yet
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  detailedAttempts.map((attempt) => (
+                    <TableRow key={attempt.id}>
+                      <TableCell className="text-xs whitespace-nowrap">
+                        <div className="hidden sm:block">{format(attempt.date, "MMM dd, yyyy")}</div>
+                        <div className="sm:hidden">{format(attempt.date, "MMM dd")}</div>
+                      </TableCell>
+                      <TableCell className="text-xs max-w-[120px] truncate">{attempt.topic}</TableCell>
+                      <TableCell className="text-xs">
+                        <span className="font-semibold">
+                          {attempt.score.raw}/{attempt.score.total}
+                        </span>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        <Badge
+                          variant={getAccuracyColor(attempt.accuracy) as any}
+                          className="text-xs"
+                        >
+                          {attempt.accuracy}%
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <div className="flex gap-1 flex-wrap">
+                          {attempt.questionTypes.map((type) => (
+                            <Badge key={type} variant="outline" className="text-xs">
+                              {type}
+                            </Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </div>
         </CardContent>
       </Card>
