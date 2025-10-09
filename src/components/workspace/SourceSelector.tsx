@@ -1,11 +1,8 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-
 import { Upload, Search, FileText, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   AlertDialog,
@@ -154,10 +151,13 @@ const SourceSelector = ({
     }
   };
 
-  const handleDeleteClick = (pdf: PDF, e: React.MouseEvent) => {
+  const handleDeleteClick = (e: React.MouseEvent, pdfId: string) => {
     e.stopPropagation(); // Prevent PDF selection when clicking delete
-    setPdfToDelete(pdf);
-    setDeleteDialogOpen(true);
+    const pdf = pdfs.find(p => p.id === pdfId);
+    if (pdf) {
+      setPdfToDelete(pdf);
+      setDeleteDialogOpen(true);
+    }
   };
 
   const handleDeleteConfirm = async () => {
@@ -261,13 +261,16 @@ const SourceSelector = ({
     }
   };
 
-  const handlePdfSelect = async (pdf: PDF) => {
-    const newSelectedId = pdf.id === selectedPdfId ? null : pdf.id;
+  const handlePdfSelect = async (pdfId: string) => {
+    const newSelectedId = pdfId === selectedPdfId ? null : pdfId;
     onSelectPdf(newSelectedId);
 
     // Send to webhook when a PDF is selected (not when deselecting)
     if (newSelectedId) {
-      await sendPdfToWebhook(pdf);
+      const pdf = pdfs.find(p => p.id === pdfId);
+      if (pdf) {
+        await sendPdfToWebhook(pdf);
+      }
     }
   };
 
@@ -276,24 +279,12 @@ const SourceSelector = ({
   );
 
   return (
-    <div className="space-y-3 sm:space-y-4">
-      {/* Heading */}
-      <div>
-        <h3 className="text-sm font-semibold text-foreground">
+    <div className="flex flex-col h-full">
+      <div className="p-6 space-y-4">
+        <p className="text-muted-foreground text-sm">
           Select a PDF to View, Chat, or Generate Quizzes
-        </h3>
-      </div>
+        </p>
 
-      {/* Upload Button */}
-      <div>
-        <Label htmlFor="pdf-upload" className="cursor-pointer">
-          <Button className="w-full" asChild>
-            <span>
-              <Upload className="h-4 w-4 mr-2" />
-              Upload PDF
-            </span>
-          </Button>
-        </Label>
         <Input
           id="pdf-upload"
           type="file"
@@ -301,22 +292,28 @@ const SourceSelector = ({
           className="hidden"
           onChange={handleUpload}
         />
+        <Button
+          onClick={() => document.getElementById('pdf-upload')?.click()}
+          disabled={loading}
+          className="w-full h-12 text-base"
+        >
+          <Upload className="h-5 w-5 mr-2" />
+          Upload PDF
+        </Button>
+
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Input
+            placeholder="Search PDFs..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 h-12 rounded-xl border-2"
+          />
+        </div>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search PDFs..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
-        />
-      </div>
-
-      {/* PDF List */}
-      <ScrollArea className="h-[300px] sm:h-[400px]">
-        <div className="space-y-2">
+      <ScrollArea className="flex-1 px-6">
+        <div className="space-y-3 pb-6">
           {loading ? (
             <p className="text-sm text-muted-foreground text-center py-8">
               Loading PDFs...
@@ -327,31 +324,33 @@ const SourceSelector = ({
             </p>
           ) : (
             filteredPdfs.map((pdf) => (
-              <Card
+              <div
                 key={pdf.id}
-                className={`p-3 cursor-pointer transition-colors hover:bg-accent/50 ${
-                  selectedPdfId === pdf.id ? "bg-accent border-primary" : ""
+                className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-colors ${
+                  selectedPdfId === pdf.id
+                    ? "bg-primary/10 border-primary"
+                    : "hover:bg-muted/50 border-border"
                 }`}
-                onClick={() => handlePdfSelect(pdf)}
+                onClick={() => handlePdfSelect(pdf.id)}
               >
-                <div className="flex items-start gap-3">
-                  <FileText className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <FileText className="h-6 w-6 text-primary flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{pdf.title}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="font-medium truncate">{pdf.title}</p>
+                    <p className="text-sm text-muted-foreground">
                       {pdf.pages} pages
                     </p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 flex-shrink-0 text-muted-foreground hover:text-destructive"
-                    onClick={(e) => handleDeleteClick(pdf, e)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
                 </div>
-              </Card>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => handleDeleteClick(e, pdf.id)}
+                  className="h-9 w-9 flex-shrink-0"
+                >
+                  <Trash2 className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </div>
             ))
           )}
         </div>
