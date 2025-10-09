@@ -210,6 +210,62 @@ const SourceSelector = ({
     }
   };
 
+  const sendPdfToWebhook = async (pdf: PDF) => {
+    try {
+      // Get the PDF file from Supabase storage
+      const { data: pdfData } = await supabase
+        .from("pdfs")
+        .select("file_path")
+        .eq("id", pdf.id)
+        .single();
+
+      if (!pdfData) throw new Error("PDF not found");
+
+      // Download the PDF file as a blob
+      const { data: fileBlob, error: downloadError } = await supabase.storage
+        .from("pdfs")
+        .download(pdfData.file_path);
+
+      if (downloadError) throw downloadError;
+
+      // Create FormData and append the file
+      const formData = new FormData();
+      formData.append("file", fileBlob, `${pdf.title}.pdf`);
+
+      // Send to n8n webhook
+      const response = await fetch("https://atharvagurao.app.n8n.cloud/webhook-test/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Webhook returned status ${response.status}`);
+      }
+
+      toast({
+        title: "PDF sent to webhook",
+        description: `"${pdf.title}" was successfully sent to n8n.`,
+      });
+    } catch (error: any) {
+      console.error("Webhook error:", error);
+      toast({
+        title: "Webhook failed",
+        description: error.message || "Could not send PDF to webhook.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handlePdfSelect = async (pdf: PDF) => {
+    const newSelectedId = pdf.id === selectedPdfId ? null : pdf.id;
+    onSelectPdf(newSelectedId);
+
+    // Send to webhook when a PDF is selected (not when deselecting)
+    if (newSelectedId) {
+      await sendPdfToWebhook(pdf);
+    }
+  };
+
   const filteredPdfs = pdfs.filter((pdf) =>
     pdf.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -271,7 +327,7 @@ const SourceSelector = ({
                 className={`p-3 cursor-pointer transition-colors hover:bg-accent/50 ${
                   selectedPdfId === pdf.id ? "bg-accent border-primary" : ""
                 }`}
-                onClick={() => onSelectPdf(pdf.id === selectedPdfId ? null : pdf.id)}
+                onClick={() => handlePdfSelect(pdf)}
               >
                 <div className="flex items-start gap-3">
                   <FileText className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
