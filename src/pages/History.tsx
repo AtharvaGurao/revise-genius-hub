@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import NavBar from "@/components/NavBar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,40 +11,95 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Eye } from "lucide-react";
+import { Eye, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
-// Mock data - will be replaced with API calls
-const mockAttempts = [
-  {
-    id: "1",
-    date: new Date("2025-01-15"),
-    topic: "Newton's Laws of Motion",
-    score: { raw: 8, total: 10, percent: 80 },
-    accuracy: 80,
-    questionTypes: ["MCQ", "SAQ"],
-  },
-  {
-    id: "2",
-    date: new Date("2025-01-14"),
-    topic: "Thermodynamics",
-    score: { raw: 7, total: 10, percent: 70 },
-    accuracy: 70,
-    questionTypes: ["MCQ", "LAQ"],
-  },
-  {
-    id: "3",
-    date: new Date("2025-01-13"),
-    topic: "Kinematics",
-    score: { raw: 9, total: 10, percent: 90 },
-    accuracy: 90,
-    questionTypes: ["MCQ"],
-  },
-];
+interface QuizAttempt {
+  id: string;
+  date: Date;
+  topic: string;
+  score: { raw: number; total: number; percent: number };
+  accuracy: number;
+  questionTypes: string[];
+}
 
 const History = () => {
-  const [attempts] = useState(mockAttempts);
+  const [attempts, setAttempts] = useState<QuizAttempt[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchAttempts();
+  }, []);
+
+  const fetchAttempts = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      const { data: attemptsData, error } = await supabase
+        .from("quiz_attempts_v2")
+        .select(`
+          id,
+          created_at,
+          quiz_type,
+          total_questions,
+          correct_answers,
+          score_percentage,
+          pdf_id,
+          pdfs (
+            title
+          )
+        `)
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      // Fetch question types for each attempt from quiz_answers
+      const attemptsWithTypes = await Promise.all(
+        (attemptsData || []).map(async (attempt) => {
+          const { data: answers } = await supabase
+            .from("quiz_answers")
+            .select("question_type")
+            .eq("attempt_id", attempt.id);
+
+          const uniqueTypes = [...new Set(answers?.map(a => a.question_type) || [])];
+
+          return {
+            id: attempt.id,
+            date: new Date(attempt.created_at),
+            topic: (attempt.pdfs as any)?.title || "General Quiz",
+            score: {
+              raw: attempt.correct_answers,
+              total: attempt.total_questions,
+              percent: Math.round(attempt.score_percentage || 0),
+            },
+            accuracy: Math.round(attempt.score_percentage || 0),
+            questionTypes: uniqueTypes,
+          };
+        })
+      );
+
+      setAttempts(attemptsWithTypes);
+    } catch (error: any) {
+      console.error("Error fetching attempts:", error);
+      toast({
+        title: "Error loading quiz history",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getAccuracyColor = (accuracy: number) => {
     if (accuracy >= 80) return "success";
@@ -75,7 +130,14 @@ const History = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {attempts.length === 0 ? (
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-12">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
+                      <p className="text-muted-foreground mt-2">Loading your quiz history...</p>
+                    </TableCell>
+                  </TableRow>
+                ) : attempts.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
                       No quiz attempts yet. Start your first quiz!
