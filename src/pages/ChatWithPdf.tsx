@@ -12,12 +12,12 @@ const ChatWithPdf = () => {
 
   return (
     <div className="h-screen flex flex-col bg-background">
-      <NavBar />
+      <NavBar onTogglePdfLibrary={() => setSidebarOpen(!sidebarOpen)} />
       
-      <div className="flex-1 flex overflow-hidden">
-        {/* PDF Library Sidebar */}
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* PDF Library Sidebar - Desktop */}
         {sidebarOpen && (
-          <aside className="w-80 border-r bg-card overflow-hidden flex flex-col">
+          <aside className="absolute lg:relative w-80 h-full border-r bg-card overflow-hidden flex flex-col z-20 lg:z-0 shadow-lg lg:shadow-none">
             <div className="p-6 border-b flex items-center justify-between">
               <h2 className="text-2xl font-bold">PDF Library</h2>
               <Button
@@ -39,20 +39,8 @@ const ChatWithPdf = () => {
           </aside>
         )}
 
-        {/* Toggle sidebar button when closed */}
-        {!sidebarOpen && (
-          <Button
-            onClick={() => setSidebarOpen(true)}
-            variant="outline"
-            size="sm"
-            className="fixed left-4 top-20 z-10"
-          >
-            PDF Library
-          </Button>
-        )}
-
         {/* Desktop: Left - PDF Viewer */}
-        <aside className="hidden lg:block w-1/2 border-r bg-card overflow-hidden">
+        <aside className={`hidden lg:block border-r bg-card overflow-hidden ${sidebarOpen ? 'w-[calc(50%-10rem)]' : 'w-1/2'}`}>
           <PdfViewer pdfId={selectedPdfId} />
         </aside>
 

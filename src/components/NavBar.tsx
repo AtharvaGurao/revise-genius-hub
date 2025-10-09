@@ -1,11 +1,15 @@
 import { Button } from "@/components/ui/button";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, Home, FileText, Brain, Youtube, Settings, LogOut } from "lucide-react";
+import { Menu, Home, FileText, Brain, Youtube, Settings, LogOut, Library } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-const NavBar = () => {
+interface NavBarProps {
+  onTogglePdfLibrary?: () => void;
+}
+
+const NavBar = ({ onTogglePdfLibrary }: NavBarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -27,9 +31,24 @@ const NavBar = () => {
     { path: "/edu-clips", label: "EduClips", icon: Youtube },
   ];
 
+  const showPdfLibraryButton = ["/chat-with-pdf", "/revise-pro", "/edu-clips"].includes(
+    location.pathname
+  );
+
   return (
     <header className="border-b bg-card px-4 py-3 flex items-center justify-between sticky top-0 z-50">
       <div className="flex items-center gap-3">
+        {showPdfLibraryButton && onTogglePdfLibrary && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onTogglePdfLibrary}
+            className="flex items-center gap-2"
+          >
+            <Library className="h-4 w-4" />
+            <span className="hidden sm:inline">PDF Library</span>
+          </Button>
+        )}
         <Sheet>
           <SheetTrigger asChild className="lg:hidden">
             <Button variant="ghost" size="icon" className="h-9 w-9">
