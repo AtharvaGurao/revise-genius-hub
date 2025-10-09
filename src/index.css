@@ -8,8 +8,8 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 220 20% 15%;
+    --background: 0 0% 98%;
+    --foreground: 220 13% 13%;
 
     --card: 0 0% 100%;
     --card-foreground: 220 20% 15%;
@@ -18,9 +18,9 @@ All colors MUST be HSL.
     --popover-foreground: 220 20% 15%;
 
     /* Deep blue - trust, learning */
-    --primary: 220 85% 35%;
+    --primary: 220 90% 56%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 220 85% 30%;
+    --primary-hover: 220 90% 50%;
 
     /* Saffron accent - energy, motivation */
     --accent: 25 95% 53%;

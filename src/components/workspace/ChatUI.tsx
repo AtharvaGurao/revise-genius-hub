@@ -187,34 +187,37 @@ const ChatUI = ({ selectedPdfId }: ChatUIProps) => {
   };
 
   return (
-    <div className="h-full flex flex-col bg-muted/20">
-      {/* Chat Header */}
-      <div className="bg-card border-b px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-2">
-        <h3 className="font-heading font-semibold text-sm sm:text-base truncate">{currentChat.title}</h3>
-        <Button onClick={handleNewChat} size="sm" variant="outline" className="flex-shrink-0">
-          <Plus className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
-          <span className="hidden sm:inline">New Chat</span>
+    <div className="flex flex-col h-full bg-background">
+      {/* Header */}
+      <div className="border-b bg-card p-4 flex items-center justify-between flex-shrink-0">
+        <h2 className="font-heading font-bold text-lg">New Chat</h2>
+        <Button variant="outline" size="sm" onClick={handleNewChat}>
+          <Plus className="h-4 w-4 mr-2" />
+          New Chat
         </Button>
       </div>
 
-      {/* Messages */}
-      <ScrollArea className="flex-1 p-3 sm:p-4" ref={scrollRef}>
-        <div className="max-w-4xl mx-auto space-y-3 sm:space-y-4">
-          {currentChat.messages.length === 0 ? (
-            <div className="text-center py-8 sm:py-12 space-y-3 sm:space-y-4 px-4">
-              <Bot className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-muted-foreground" />
+      {/* Chat Area */}
+      <ScrollArea className="flex-1 p-6" ref={scrollRef}>
+        {currentChat.messages.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center space-y-6 px-4 max-w-lg">
+              <div className="w-16 h-16 mx-auto bg-muted rounded-full flex items-center justify-center">
+                <div className="text-3xl">🤖</div>
+              </div>
               <div>
-                <h3 className="font-heading font-semibold text-lg sm:text-xl mb-2">
+                <h3 className="font-heading font-bold text-2xl mb-3">
                   Ask me anything about your PDFs
                 </h3>
-                <p className="text-sm sm:text-base text-muted-foreground">
-                  I can help explain concepts, answer questions, and provide citations from your
-                  coursebooks.
+                <p className="text-muted-foreground">
+                  I can help explain concepts, answer questions, and provide citations from your coursebooks.
                 </p>
               </div>
             </div>
-          ) : (
-            currentChat.messages.map((msg) => (
+          </div>
+        ) : (
+          <div className="max-w-4xl mx-auto space-y-4">
+            {currentChat.messages.map((msg) => (
               <div
                 key={msg.id}
                 className={`flex gap-2 sm:gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
@@ -258,9 +261,9 @@ const ChatUI = ({ selectedPdfId }: ChatUIProps) => {
                   </div>
                 )}
               </div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </ScrollArea>
 
       {/* Input */}

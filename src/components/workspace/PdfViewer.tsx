@@ -102,13 +102,19 @@ const PdfViewer = ({ pdfId }: PdfViewerProps) => {
 
   if (!pdfId) {
     return (
-      <div className="h-full flex items-center justify-center bg-muted/20">
-        <div className="text-center space-y-4 max-w-md px-4">
-          <FileText className="h-16 w-16 mx-auto text-muted-foreground" />
-          <h3 className="font-heading font-semibold text-xl">No PDF Selected</h3>
-          <p className="text-muted-foreground">
-            Select a PDF from the library on the left, or upload a new one to get started.
-          </p>
+      <div className="h-full flex items-center justify-center p-6 bg-background">
+        <div className="text-center max-w-md space-y-6">
+          <div className="w-20 h-20 mx-auto bg-muted rounded-2xl flex items-center justify-center">
+            <FileText className="h-12 w-12 text-muted-foreground" />
+          </div>
+          <div>
+            <h3 className="font-heading font-bold text-2xl mb-3">
+              No PDF Selected
+            </h3>
+            <p className="text-muted-foreground">
+              Select a PDF from the library on the left, or upload a new one to get started.
+            </p>
+          </div>
         </div>
       </div>
     );

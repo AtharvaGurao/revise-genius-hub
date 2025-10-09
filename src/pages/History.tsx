@@ -1,4 +1,5 @@
 import { useState } from "react";
+import NavBar from "@/components/NavBar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -10,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Eye } from "lucide-react";
+import { Eye } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 
@@ -52,27 +53,14 @@ const History = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <Button variant="ghost" size="icon" asChild className="flex-shrink-0">
-              <Link to="/app">
-                <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-              </Link>
-            </Button>
-            <h1 className="font-heading font-bold text-lg sm:text-xl md:text-2xl truncate">Quiz History</h1>
-          </div>
-          <Button asChild size="sm" className="flex-shrink-0">
-            <Link to="/app">
-              <span className="hidden sm:inline">New Quiz</span>
-              <span className="sm:hidden">New</span>
-            </Link>
-          </Button>
+    <div className="min-h-screen bg-background flex flex-col">
+      <NavBar />
+      
+      <main className="flex-1 container mx-auto px-3 sm:px-4 py-4 sm:py-8">
+        <div className="mb-6">
+          <h1 className="font-heading font-bold text-2xl sm:text-3xl mb-2">Quiz History</h1>
+          <p className="text-muted-foreground">Review your past quiz attempts and track your progress.</p>
         </div>
-      </header>
-
-      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
             <Table>
@@ -143,7 +131,7 @@ const History = () => {
         {attempts.length === 0 && (
           <div className="text-center mt-8">
             <Button asChild size="lg" className="bg-primary hover:bg-primary-hover">
-              <Link to="/app">Take Your First Quiz</Link>
+              <Link to="/revise-pro">Take Your First Quiz</Link>
             </Button>
           </div>
         )}

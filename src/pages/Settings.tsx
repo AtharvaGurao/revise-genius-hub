@@ -1,11 +1,11 @@
 import { useState } from "react";
+import NavBar from "@/components/NavBar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Trash2, Check, X } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Trash2, Check, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const Settings = () => {
@@ -31,19 +31,14 @@ const Settings = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4 flex items-center gap-2 sm:gap-3">
-          <Button variant="ghost" size="icon" asChild>
-            <Link to="/app">
-              <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-            </Link>
-          </Button>
-          <h1 className="font-heading font-bold text-lg sm:text-xl md:text-2xl">Settings</h1>
-        </div>
-      </header>
+    <div className="min-h-screen bg-background flex flex-col">
+      <NavBar />
 
-      <main className="container max-w-3xl mx-auto px-3 sm:px-4 py-4 sm:py-8 space-y-4 sm:space-y-6">
+      <main className="flex-1 container max-w-3xl mx-auto px-3 sm:px-4 py-4 sm:py-8 space-y-4 sm:space-y-6">
+        <div className="mb-6">
+          <h1 className="font-heading font-bold text-2xl sm:text-3xl mb-2">Settings</h1>
+          <p className="text-muted-foreground">Manage your preferences and application settings.</p>
+        </div>
         {/* API Status */}
         <Card>
           <CardHeader>
