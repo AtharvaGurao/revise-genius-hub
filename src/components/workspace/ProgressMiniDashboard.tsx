@@ -83,49 +83,7 @@ const ProgressMiniDashboard = () => {
         return;
       }
 
-      // Fetch from quiz_progress_summary view
-      const { data: summaryData, error: summaryError } = await supabase
-        .from("quiz_progress_summary" as any)
-        .select("*")
-        .eq("user_id", session.session.user.id)
-        .single();
-
-      if (summaryError) {
-        // If no data yet, show empty state
-        if (summaryError.code === "PGRST116") {
-          setProgressData({
-            accuracyOverall: 0,
-            recentAttempts: [],
-            strengths: [],
-            weaknesses: [],
-            totalAttempts: 0,
-            averageScore: 0,
-          });
-          setLoading(false);
-          return;
-        }
-        throw summaryError;
-      }
-
-      // Fetch recent attempts for chart
-      const { data: recentData, error: recentError } = await supabase
-        .from("quiz_attempts_v2" as any)
-        .select("*")
-        .eq("user_id", session.session.user.id)
-        .order("created_at", { ascending: false })
-        .limit(5);
-
-      if (recentError) throw recentError;
-
-      const recentAttempts = (recentData || []).map((attempt: any) => ({
-        date: new Date(attempt.created_at).toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        }),
-        accuracy: Math.round(attempt.score_percentage),
-      })).reverse();
-
-      // Fetch detailed attempts for the table
+      // Fetch all attempts directly from the table
       const { data: allAttemptsData, error: allAttemptsError } = await supabase
         .from("quiz_attempts_v2")
         .select(`
@@ -141,14 +99,82 @@ const ProgressMiniDashboard = () => {
           )
         `)
         .eq("user_id", session.session.user.id)
-        .order("created_at", { ascending: false })
-        .limit(10);
+        .order("created_at", { ascending: false });
 
       if (allAttemptsError) throw allAttemptsError;
 
-      // Fetch question types for each attempt
+      // If no attempts, show empty state
+      if (!allAttemptsData || allAttemptsData.length === 0) {
+        setProgressData({
+          accuracyOverall: 0,
+          recentAttempts: [],
+          strengths: [],
+          weaknesses: [],
+          totalAttempts: 0,
+          averageScore: 0,
+        });
+        setDetailedAttempts([]);
+        setLoading(false);
+        return;
+      }
+
+      // Calculate overall stats
+      const totalAttempts = allAttemptsData.length;
+      const totalCorrect = allAttemptsData.reduce((sum, a) => sum + a.correct_answers, 0);
+      const totalQuestions = allAttemptsData.reduce((sum, a) => sum + a.total_questions, 0);
+      const overallAccuracy = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+      const averageScore = allAttemptsData.reduce((sum, a) => sum + (a.score_percentage || 0), 0) / totalAttempts;
+
+      // Get recent attempts for chart (last 5)
+      const recentData = allAttemptsData.slice(0, 5);
+      const recentAttempts = recentData.map((attempt: any) => ({
+        date: new Date(attempt.created_at).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        }),
+        accuracy: Math.round(attempt.score_percentage),
+      })).reverse();
+
+      // Fetch question types and topics for strengths/weaknesses
+      const answersPromises = allAttemptsData.map(attempt => 
+        supabase
+          .from("quiz_answers")
+          .select("question_type, topic, is_correct")
+          .eq("attempt_id", attempt.id)
+      );
+
+      const answersResults = await Promise.all(answersPromises);
+      
+      // Calculate strengths and weaknesses by topic
+      const topicStats: { [key: string]: { correct: number; total: number } } = {};
+      
+      answersResults.forEach(result => {
+        if (result.data) {
+          result.data.forEach((answer: any) => {
+            const topic = answer.topic || "General";
+            if (!topicStats[topic]) {
+              topicStats[topic] = { correct: 0, total: 0 };
+            }
+            topicStats[topic].total++;
+            if (answer.is_correct) {
+              topicStats[topic].correct++;
+            }
+          });
+        }
+      });
+
+      // Calculate accuracy by topic and sort
+      const topicAccuracies = Object.entries(topicStats).map(([topic, stats]) => ({
+        topic,
+        accuracy: stats.total > 0 ? (stats.correct / stats.total) * 100 : 0
+      })).sort((a, b) => b.accuracy - a.accuracy);
+
+      const strengths = topicAccuracies.slice(0, 3).filter(t => t.accuracy >= 70).map(t => t.topic);
+      const weaknesses = topicAccuracies.slice(-3).filter(t => t.accuracy < 70).map(t => t.topic);
+
+      // Fetch question types for detailed attempts (first 10)
       const detailedAttemptsData = await Promise.all(
-        (allAttemptsData || []).map(async (attempt) => {
+        allAttemptsData.slice(0, 10).map(async (attempt) => {
           const { data: answers } = await supabase
             .from("quiz_answers")
             .select("question_type")
@@ -174,12 +200,12 @@ const ProgressMiniDashboard = () => {
       setDetailedAttempts(detailedAttemptsData);
 
       setProgressData({
-        accuracyOverall: Math.round((summaryData as any).overall_accuracy || 0),
+        accuracyOverall: overallAccuracy,
         recentAttempts,
-        strengths: (summaryData as any).strengths || [],
-        weaknesses: (summaryData as any).weaknesses || [],
-        totalAttempts: (summaryData as any).total_attempts || 0,
-        averageScore: Math.round((summaryData as any).average_score || 0),
+        strengths,
+        weaknesses,
+        totalAttempts,
+        averageScore: Math.round(averageScore),
       });
     } catch (error) {
       console.error("Error fetching progress:", error);
