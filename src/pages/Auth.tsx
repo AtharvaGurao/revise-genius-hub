@@ -166,23 +166,23 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary via-primary-hover to-accent flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-primary via-primary-hover to-accent flex items-center justify-center p-3 sm:p-4">
       <Card className="w-full max-w-md shadow-2xl">
-        <CardHeader className="text-center pb-4">
-          <div className="flex justify-center mb-4">
-            <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center">
-              <BookOpen className="h-6 w-6 text-primary-foreground" />
+        <CardHeader className="text-center pb-3 sm:pb-4 px-4 sm:px-6">
+          <div className="flex justify-center mb-3 sm:mb-4">
+            <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-primary flex items-center justify-center">
+              <BookOpen className="h-5 w-5 sm:h-6 sm:w-6 text-primary-foreground" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-heading">SmartRevise</CardTitle>
-          <CardDescription>Your intelligent study companion</CardDescription>
+          <CardTitle className="text-xl sm:text-2xl font-heading">SmartRevise</CardTitle>
+          <CardDescription className="text-sm">Your intelligent study companion</CardDescription>
         </CardHeader>
         
-        <CardContent>
+        <CardContent className="px-4 sm:px-6">
           <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 mb-4 sm:mb-6">
+              <TabsTrigger value="login" className="text-sm">Login</TabsTrigger>
+              <TabsTrigger value="signup" className="text-sm">Sign Up</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login">
