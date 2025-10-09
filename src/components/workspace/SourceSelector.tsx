@@ -30,11 +30,13 @@ interface PDF {
 interface SourceSelectorProps {
   selectedPdfId: string | null;
   onSelectPdf: (id: string | null) => void;
+  onPdfSentToWebhook?: () => void;
 }
 
 const SourceSelector = ({
   selectedPdfId,
   onSelectPdf,
+  onPdfSentToWebhook,
 }: SourceSelectorProps) => {
   const [pdfs, setPdfs] = useState<PDF[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -246,6 +248,9 @@ const SourceSelector = ({
         title: "PDF sent to webhook",
         description: `"${pdf.title}" was successfully sent to n8n.`,
       });
+      
+      // Notify parent to switch to chat tab
+      onPdfSentToWebhook?.();
     } catch (error: any) {
       console.error("Webhook error:", error);
       toast({

@@ -13,6 +13,7 @@ import YouTubeRecommender from "@/components/workspace/YouTubeRecommender";
 
 const Workspace = () => {
   const [selectedPdfId, setSelectedPdfId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("pdf");
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -33,6 +34,7 @@ const Workspace = () => {
                 <SourceSelector
                   selectedPdfId={selectedPdfId}
                   onSelectPdf={setSelectedPdfId}
+                  onPdfSentToWebhook={() => setActiveTab("chat")}
                 />
               </div>
             </SheetContent>
@@ -65,13 +67,14 @@ const Workspace = () => {
             <SourceSelector
               selectedPdfId={selectedPdfId}
               onSelectPdf={setSelectedPdfId}
+              onPdfSentToWebhook={() => setActiveTab("chat")}
             />
           </div>
         </aside>
 
         {/* Center Pane - Tabbed Interface */}
         <main className="flex-1 overflow-hidden min-w-0">
-          <Tabs defaultValue="pdf" className="h-full flex flex-col">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
             <div className="border-b bg-card px-2 sm:px-4">
               <TabsList className="h-10 sm:h-12 bg-transparent w-full sm:w-auto justify-start overflow-x-auto">
                 <TabsTrigger 

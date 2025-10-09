@@ -41,6 +41,19 @@ const ChatUI = ({ selectedPdfId }: ChatUIProps) => {
 
   const currentChat = chats.find((c) => c.id === currentChatId) || chats[0];
 
+  // Reset chat when PDF changes
+  useEffect(() => {
+    if (selectedPdfId) {
+      const newChat: Chat = {
+        id: `chat-${selectedPdfId}-${Date.now()}`,
+        title: "New Chat",
+        messages: [],
+      };
+      setChats([newChat]);
+      setCurrentChatId(newChat.id);
+    }
+  }, [selectedPdfId]);
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
