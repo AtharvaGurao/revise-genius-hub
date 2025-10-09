@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import NavBar from "@/components/NavBar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +12,37 @@ const Settings = () => {
   const [darkMode, setDarkMode] = useState(false);
   const [apiStatus, setApiStatus] = useState<"healthy" | "unhealthy" | "unknown">("unknown");
   const { toast } = useToast();
+
+  // Initialize dark mode from localStorage on mount
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme");
+    const isDark = savedTheme === "dark";
+    setDarkMode(isDark);
+    
+    if (isDark) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, []);
+
+  // Handle dark mode toggle
+  const handleDarkModeToggle = (checked: boolean) => {
+    setDarkMode(checked);
+    
+    if (checked) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    }
+    
+    toast({
+      title: "Theme updated",
+      description: `Switched to ${checked ? "dark" : "light"} mode.`,
+    });
+  };
 
   const handleClearCache = () => {
     toast({
@@ -102,7 +133,7 @@ const Settings = () => {
               <Switch
                 id="dark-mode"
                 checked={darkMode}
-                onCheckedChange={setDarkMode}
+                onCheckedChange={handleDarkModeToggle}
                 className="self-start sm:self-center"
               />
             </div>
