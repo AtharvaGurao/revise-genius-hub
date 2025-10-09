@@ -38,6 +38,16 @@ const ChatUI = ({ selectedPdfId }: ChatUIProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  
+  // Get or create persistent sessionId
+  const getSessionId = () => {
+    let sessionId = localStorage.getItem('n8n_session_id');
+    if (!sessionId) {
+      sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      localStorage.setItem('n8n_session_id', sessionId);
+    }
+    return sessionId;
+  };
 
   const currentChat = chats.find((c) => c.id === currentChatId) || chats[0];
 
@@ -91,8 +101,7 @@ const ChatUI = ({ selectedPdfId }: ChatUIProps) => {
     setIsLoading(true);
 
     try {
-      const { data: session } = await supabase.auth.getSession();
-      const userId = session.session?.user.id;
+      const sessionId = getSessionId();
 
       // Call n8n webhook
       const response = await fetch("https://atharvagurao.app.n8n.cloud/webhook/5c2ac1c1-66b3-4086-9e09-66c01abe3222/chat", {
@@ -101,9 +110,8 @@ const ChatUI = ({ selectedPdfId }: ChatUIProps) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          query: userMessage.content,
-          timestamp: new Date().toISOString(),
-          user_id: userId || null
+          chatInput: userMessage.content,
+          sessionId: sessionId
         })
       });
 
@@ -114,7 +122,7 @@ const ChatUI = ({ selectedPdfId }: ChatUIProps) => {
       const webhookData = await response.json();
       
       // Extract assistant response from webhook
-      const assistantContent = webhookData.response || webhookData.message || JSON.stringify(webhookData);
+      const assistantContent = webhookData.output || webhookData.text || JSON.stringify(webhookData);
       
       const assistantMessage: Message = {
         id: `msg-${Date.now()}`,
@@ -132,6 +140,9 @@ const ChatUI = ({ selectedPdfId }: ChatUIProps) => {
       );
 
       // Save messages to database if user is logged in
+      const { data: session } = await supabase.auth.getSession();
+      const userId = session.session?.user.id;
+      
       if (userId) {
         await supabase.from("chat_messages").insert([
           {
