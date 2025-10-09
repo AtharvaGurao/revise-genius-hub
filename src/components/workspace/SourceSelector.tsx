@@ -83,6 +83,7 @@ const SourceSelector = ({
         description: "Please upload a PDF file.",
         variant: "destructive",
       });
+      e.target.value = "";
       return;
     }
 
@@ -99,6 +100,7 @@ const SourceSelector = ({
           description: "Please sign in to upload PDFs.",
           variant: "destructive",
         });
+        e.target.value = "";
         return;
       }
 
@@ -141,6 +143,8 @@ const SourceSelector = ({
         title: "PDF uploaded successfully",
         description: `"${newPdf.title}" is now available in your library.`,
       });
+      
+      e.target.value = "";
     } catch (error: any) {
       console.error("Upload error:", error);
       toast({
@@ -148,6 +152,7 @@ const SourceSelector = ({
         description: error.message || "Could not upload PDF. Please try again.",
         variant: "destructive",
       });
+      e.target.value = "";
     }
   };
 
