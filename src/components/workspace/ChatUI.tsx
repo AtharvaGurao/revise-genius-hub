@@ -79,160 +79,61 @@ const ChatUI = ({ selectedPdfId }: ChatUIProps) => {
 
     try {
       const { data: session } = await supabase.auth.getSession();
-      if (!session.session) {
-        toast({
-          title: "Authentication required",
-          description: "Please sign in to chat.",
-          variant: "destructive",
-        });
-        return;
-      }
+      const userId = session.session?.user.id;
 
-      // Save user message
-      await supabase.from("chat_messages").insert({
-        user_id: session.session.user.id,
-        conversation_id: currentChatId,
-        role: "user",
-        content: userMessage.content,
-      });
-
-      // Call RAG edge function with streaming
-      const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-rag`;
-      
-      const response = await fetch(CHAT_URL, {
+      // Call n8n webhook
+      const response = await fetch("https://atharvagurao.app.n8n.cloud/webhook/5c2ac1c1-66b3-4086-9e09-66c01abe3222/chat", {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.session.access_token}`,
         },
         body: JSON.stringify({
-          conversationId: currentChatId,
           query: userMessage.content,
-          pdfId: selectedPdfId
+          timestamp: new Date().toISOString(),
+          user_id: userId || null
         })
       });
 
-      if (!response.ok || !response.body) {
-        let errorMessage = 'Failed to start chat stream';
-        
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch (e) {
-          // Use default error message if parsing fails
-        }
+      if (!response.ok) {
+        throw new Error(`Webhook returned status ${response.status}`);
+      }
 
-        if (response.status === 429) {
-          toast({
-            title: "Rate limit exceeded",
-            description: "Too many requests. Please try again later.",
-            variant: "destructive",
-          });
-        } else if (response.status === 402) {
-          toast({
-            title: "AI credits exhausted",
-            description: "Please add credits to continue using AI features.",
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Chat error",
-            description: errorMessage,
-            variant: "destructive",
-          });
-          
-          // Add fallback assistant message
-          const fallbackMessage: Message = {
-            id: `msg-${Date.now()}`,
+      const webhookData = await response.json();
+      
+      // Extract assistant response from webhook
+      const assistantContent = webhookData.response || webhookData.message || JSON.stringify(webhookData);
+      
+      const assistantMessage: Message = {
+        id: `msg-${Date.now()}`,
+        role: "assistant",
+        content: assistantContent,
+      };
+
+      // Add assistant message to chat
+      setChats((prev) =>
+        prev.map((chat) =>
+          chat.id === currentChatId
+            ? { ...chat, messages: [...chat.messages, assistantMessage] }
+            : chat
+        )
+      );
+
+      // Save messages to database if user is logged in
+      if (userId) {
+        await supabase.from("chat_messages").insert([
+          {
+            user_id: userId,
+            conversation_id: currentChatId,
+            role: "user",
+            content: userMessage.content,
+          },
+          {
+            user_id: userId,
+            conversation_id: currentChatId,
             role: "assistant",
-            content: "I apologize, but I encountered an error processing your request. Please try again or contact support if the issue persists.",
-          };
-          
-          setChats((prev) =>
-            prev.map((chat) =>
-              chat.id === currentChatId
-                ? { ...chat, messages: [...chat.messages, fallbackMessage] }
-                : chat
-            )
-          );
-        }
-        return;
-      }
-
-      // Stream the response
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let accumulatedText = '';
-      let assistantMessageId = `msg-${Date.now()}`;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') continue;
-
-            try {
-              const parsed = JSON.parse(data);
-              const content = parsed.choices?.[0]?.delta?.content;
-              
-              if (content) {
-                accumulatedText += content;
-                
-                // Update assistant message in real-time
-                setChats((prev) =>
-                  prev.map((chat) => {
-                    if (chat.id !== currentChatId) return chat;
-                    
-                    const lastMsg = chat.messages[chat.messages.length - 1];
-                    if (lastMsg?.role === 'assistant' && lastMsg.id === assistantMessageId) {
-                      // Update existing message
-                      return {
-                        ...chat,
-                        messages: chat.messages.map(msg =>
-                          msg.id === assistantMessageId
-                            ? { ...msg, content: accumulatedText }
-                            : msg
-                        )
-                      };
-                    } else {
-                      // Create new assistant message
-                      return {
-                        ...chat,
-                        messages: [
-                          ...chat.messages,
-                          {
-                            id: assistantMessageId,
-                            role: 'assistant',
-                            content: accumulatedText,
-                            citations: []
-                          }
-                        ]
-                      };
-                    }
-                  })
-                );
-              }
-            } catch (e) {
-              // Ignore JSON parse errors for incomplete chunks
-            }
+            content: assistantContent,
           }
-        }
-      }
-
-      // Save final assistant message
-      if (accumulatedText) {
-        await supabase.from("chat_messages").insert({
-          user_id: session.session.user.id,
-          conversation_id: currentChatId,
-          role: "assistant",
-          content: accumulatedText,
-        });
+        ]);
       }
     } catch (error: any) {
       console.error("Chat error:", error);
