@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
 import { Upload, Search, FileText, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
@@ -30,15 +30,11 @@ interface PDF {
 interface SourceSelectorProps {
   selectedPdfId: string | null;
   onSelectPdf: (id: string | null) => void;
-  scope: "all" | "selected";
-  onScopeChange: (scope: "all" | "selected") => void;
 }
 
 const SourceSelector = ({
   selectedPdfId,
   onSelectPdf,
-  scope,
-  onScopeChange,
 }: SourceSelectorProps) => {
   const [pdfs, setPdfs] = useState<PDF[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -220,23 +216,11 @@ const SourceSelector = ({
 
   return (
     <div className="space-y-3 sm:space-y-4">
-      {/* Scope Selector */}
+      {/* Heading */}
       <div>
-        <Label className="text-sm font-semibold mb-2 block">Quiz Scope</Label>
-        <RadioGroup value={scope} onValueChange={(v) => onScopeChange(v as any)}>
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="all" id="scope-all" />
-            <Label htmlFor="scope-all" className="cursor-pointer">
-              All PDFs
-            </Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="selected" id="scope-selected" />
-            <Label htmlFor="scope-selected" className="cursor-pointer">
-              Selected PDF Only
-            </Label>
-          </div>
-        </RadioGroup>
+        <h3 className="text-sm font-semibold text-foreground">
+          Select a PDF to View, Chat, or Generate Quizzes
+        </h3>
       </div>
 
       {/* Upload Button */}

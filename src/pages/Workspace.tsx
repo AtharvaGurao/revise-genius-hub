@@ -13,7 +13,6 @@ import YouTubeRecommender from "@/components/workspace/YouTubeRecommender";
 
 const Workspace = () => {
   const [selectedPdfId, setSelectedPdfId] = useState<string | null>(null);
-  const [scope, setScope] = useState<"all" | "selected">("all");
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -34,8 +33,6 @@ const Workspace = () => {
                 <SourceSelector
                   selectedPdfId={selectedPdfId}
                   onSelectPdf={setSelectedPdfId}
-                  scope={scope}
-                  onScopeChange={setScope}
                 />
               </div>
             </SheetContent>
@@ -68,8 +65,6 @@ const Workspace = () => {
             <SourceSelector
               selectedPdfId={selectedPdfId}
               onSelectPdf={setSelectedPdfId}
-              scope={scope}
-              onScopeChange={setScope}
             />
           </div>
         </aside>
@@ -112,7 +107,7 @@ const Workspace = () => {
               </TabsContent>
               
               <TabsContent value="quiz" className="h-full m-0 p-0">
-                <QuizPanel scope={scope} selectedPdfId={selectedPdfId} />
+                <QuizPanel selectedPdfId={selectedPdfId} />
               </TabsContent>
               
               <TabsContent value="chat" className="h-full m-0 p-0">
@@ -125,7 +120,7 @@ const Workspace = () => {
                   <ProgressMiniDashboard />
                   <div className="mt-6">
                     <h3 className="font-heading font-semibold mb-3">Recommended Videos</h3>
-                    <YouTubeRecommender selectedPdfId={selectedPdfId} scope={scope} />
+                    <YouTubeRecommender selectedPdfId={selectedPdfId} />
                   </div>
                 </div>
               </TabsContent>
@@ -152,7 +147,7 @@ const Workspace = () => {
             </TabsContent>
             
             <TabsContent value="videos" className="flex-1 m-0 p-0">
-              <YouTubeRecommender selectedPdfId={selectedPdfId} scope={scope} />
+              <YouTubeRecommender selectedPdfId={selectedPdfId} />
             </TabsContent>
           </Tabs>
         </aside>

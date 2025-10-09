@@ -19,24 +19,22 @@ interface VideoRecommendation {
 
 interface YouTubeRecommenderProps {
   selectedPdfId: string | null;
-  scope: "all" | "selected";
 }
 
-const YouTubeRecommender = ({ selectedPdfId, scope }: YouTubeRecommenderProps) => {
+const YouTubeRecommender = ({ selectedPdfId }: YouTubeRecommenderProps) => {
   const [videos, setVideos] = useState<VideoRecommendation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Only fetch if we have a valid scope or selected PDF
-    const shouldFetch = scope === "all" || (scope === "selected" && selectedPdfId);
-    if (shouldFetch) {
+    // Fetch recommendations when a PDF is selected
+    if (selectedPdfId) {
       fetchRecommendations();
     } else {
       setVideos([]);
     }
-  }, [selectedPdfId, scope]);
+  }, [selectedPdfId]);
 
   const fetchRecommendations = async (retryCount = 0) => {
     setIsLoading(true);
@@ -58,6 +56,7 @@ const YouTubeRecommender = ({ selectedPdfId, scope }: YouTubeRecommenderProps) =
       }
 
       const pdfIds = selectedPdfId ? [selectedPdfId] : [];
+      const scope = selectedPdfId ? 'selected' : 'all';
       
       console.log('Fetching YouTube recommendations:', { 
         pdfIds, 
@@ -175,7 +174,7 @@ const YouTubeRecommender = ({ selectedPdfId, scope }: YouTubeRecommenderProps) =
           <h3 className="font-heading font-semibold text-sm sm:text-base">Recommended Videos</h3>
         </div>
         <p className="text-xs text-muted-foreground">
-          Based on {scope === "all" ? "all your PDFs" : "selected PDF"}
+          Based on {selectedPdfId ? "selected PDF" : "all your PDFs"}
         </p>
       </div>
 

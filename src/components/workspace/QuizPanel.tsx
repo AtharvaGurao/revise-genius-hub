@@ -12,7 +12,6 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 interface QuizPanelProps {
-  scope: "all" | "selected";
   selectedPdfId: string | null;
 }
 
@@ -35,7 +34,7 @@ interface QuizResult {
   userAnswer?: string | number;
 }
 
-const QuizPanel = ({ scope, selectedPdfId }: QuizPanelProps) => {
+const QuizPanel = ({ selectedPdfId }: QuizPanelProps) => {
   const [selectedTypes, setSelectedTypes] = useState<QuestionType[]>(["MCQ"]);
   const [questionCount, setQuestionCount] = useState(5);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -61,7 +60,7 @@ const QuizPanel = ({ scope, selectedPdfId }: QuizPanelProps) => {
       return;
     }
 
-    if (scope === "selected" && !selectedPdfId) {
+    if (!selectedPdfId) {
       toast({
         title: "No PDF selected",
         description: "Please select a PDF from the library.",
@@ -88,8 +87,8 @@ const QuizPanel = ({ scope, selectedPdfId }: QuizPanelProps) => {
       // Call quiz generation edge function
       const { data, error } = await supabase.functions.invoke('generate-quiz', {
         body: {
-          pdfIds: scope === 'selected' && selectedPdfId ? [selectedPdfId] : undefined,
-          scope,
+          pdfIds: selectedPdfId ? [selectedPdfId] : undefined,
+          scope: selectedPdfId ? 'selected' : 'all',
           types: selectedTypes,
           count: questionCount
         }
@@ -274,11 +273,13 @@ const QuizPanel = ({ scope, selectedPdfId }: QuizPanelProps) => {
               </div>
 
               {/* Scope Info */}
-              <div className="bg-muted p-4 rounded-lg">
-                <p className="text-sm">
-                  <strong>Scope:</strong> {scope === "all" ? "All PDFs" : "Selected PDF only"}
-                </p>
-              </div>
+              {selectedPdfId && (
+                <div className="bg-muted p-4 rounded-lg">
+                  <p className="text-sm">
+                    <strong>Generating quiz for:</strong> Selected PDF
+                  </p>
+                </div>
+              )}
 
               {/* Generate Button */}
               <Button
