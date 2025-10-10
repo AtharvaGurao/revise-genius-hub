@@ -133,10 +133,64 @@ Read more: [Setting up a custom domain](https://docs.lovable.dev/features/custom
 - Smooth animations and transitions throughout the app
 - Backend API calls are prepared but using mock data until connected
 
+🛠️ How I Built the Project
 
--what' done:
+I developed this project using **Lovable** as the main AI-assisted development platform.
 
-⸻
+* The **frontend** was created in **Lovable**, using React and Tailwind CSS for a clean and responsive interface.
+* The **Lovable Cloud** handled **backend storage** and **user authentication**.
+* **n8n** was integrated to build the **RAG (Retrieval-Augmented Generation)** workflow, connecting **OpenAI** and **Pinecone** for intelligent, context-aware chat responses based on uploaded PDFs.
+* Additionally, I used **ChatGPT** to refine and improve prompts throughout the development process, ensuring high-quality and efficient AI-assisted outputs.
+
+
+✅ What’s Done
+
+### **A. Must-Have Features**
+
+1. **Source Selector (Done)**
+
+<img width="1436" height="781" alt="Screenshot 2025-10-09 at 11 38 12 PM" src="https://github.com/user-attachments/assets/00507223-233d-42a7-921f-1d7b81b80b31" />
+
+   * Lets users choose between *All Uploaded PDFs* or a *Specific PDF*.
+   * Includes pre-seeded NCERT Class XI Physics PDFs for testing.
+   * Allows users to upload their own coursebook PDFs.
+
+2. **PDF Viewer (Done)**
+
+<img width="1439" height="809" alt="Screenshot 2025-10-09 at 11 40 58 PM" src="https://github.com/user-attachments/assets/1b6e4dad-cdf4-4544-8b9d-c4d4c8ff8bb4" />
+
+
+   * Displays the selected PDF alongside the chat interface in a tab or split view.
+
+3. **Quiz Generator Engine (Done)**
+
+<img width="1440" height="812" alt="Screenshot 2025-10-09 at 11 43 00 PM" src="https://github.com/user-attachments/assets/c9d67bdd-d754-4dc9-a905-2ee244f465cb" />
+
+   * Generates **MCQs**, **SAQs**, and **LAQs** from the selected or uploaded PDFs.
+   * Renders the quiz, captures answers, scores submissions, and stores attempts.
+   * Provides explanations for correct answers and allows generating new question sets.
+
+4. **Progress Tracking (Done)**
+
+   * Tracks user strengths and weaknesses based on quiz results.
+   * Displays a small dashboard to visualize learning progress.
+
+---
+
+### **B. Nice-to-Have Features**
+
+1. **Chat UI (ChatGPT-Inspired) (Done)**
+
+   * Acts as a virtual teacher or study companion.
+   * Includes a left drawer for chat history, main chat area, and bottom input box.
+   * Supports new chats, switching between sessions, and clean, mobile-friendly design.
+
+2. **RAG Answers with Citations (Done)**
+
+   * Ingests selected PDFs (chunking + embedding).
+   * Chatbot answers include citations with page numbers and short quotes (e.g., “According to p. 23: ‘…’”).
+
+---
 
 ⚙️ n8n Workflows Overview
 
@@ -193,34 +247,26 @@ Together, both workflows enable a Retrieval-Augmented Generation (RAG) system:
 
 This setup powers the “Chat with PDF” feature in the SmartRevise web application, enabling users to query, learn, and revise directly from their course materials.
 
-
-2)pdf viwer
-3)Quiz Generator Engine
-4)Progress tracking
-5)RAG answers with citations
-
-
-
--did you use any LLM tools? For what purposes?
-i have used loveable for frontend.
--loveable cloud and n8n for backend
-
 ⸻
 
-Would you like me to also add a diagram section (in Markdown or Mermaid format) for these workflows to include visually in your README?
+ 🚧 What’s Missing
+
+* **YouTube Video Recommender (UI Only)**
+
+<img width="1438" height="813" alt="Screenshot 2025-10-09 at 11 43 24 PM" src="https://github.com/user-attachments/assets/c7460c63-61dc-4420-aeab-25c72650b092" />
 
 
+  * The interface for showing educational YouTube videos is implemented.
+  * Backend functionality to fetch and recommend relevant videos is not yet integrated.
 
+---
 
+## 🤖 Use of LLM Tools
 
-
-
-
-
-
-
-
-
+* **Lovable AI** – For building and styling the frontend efficiently.
+* **OpenAI (via n8n)** – For chat models and embeddings used in the RAG pipeline.
+* **Google Gemini (through Lovable Cloud)** – For quiz generation and context understanding.
+* **ChatGPT** – For improving and refining prompts during development to optimize AI-assisted output.
 
 
 
