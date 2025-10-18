@@ -163,7 +163,13 @@ const PdfViewer = ({ pdfId }: PdfViewerProps) => {
               type="number"
               min={1}
               max={totalPages}
-              defaultValue={currentPage}
+              value={currentPage}
+              onChange={(e) => {
+                const val = parseInt(e.target.value || "1", 10);
+                if (Number.isNaN(val)) return;
+                const clamped = Math.min(Math.max(1, val), totalPages || 1);
+                setCurrentPage(clamped);
+              }}
               className="w-12 sm:w-16 text-center text-xs sm:text-sm h-8 sm:h-9"
             />
             <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">/ {totalPages}</span>
@@ -178,6 +184,14 @@ const PdfViewer = ({ pdfId }: PdfViewerProps) => {
           >
             <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
           </Button>
+        </div>
+
+        {/* Title + total pages */}
+        <div className="flex-1 min-w-0 text-center hidden sm:block">
+          <div className="truncate text-sm sm:text-base font-medium">{pdfTitle || "Document"}</div>
+          {totalPages > 0 && (
+            <div className="text-xs text-muted-foreground">{totalPages} pages</div>
+          )}
         </div>
 
         {/* Zoom Controls */}

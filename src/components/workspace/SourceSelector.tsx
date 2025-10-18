@@ -15,6 +15,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { pdfjs } from "react-pdf";
+
+// Set up the worker for react-pdf
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface PDF {
   id: string;
@@ -114,14 +118,25 @@ const SourceSelector = ({
 
       if (uploadError) throw uploadError;
 
-      // Create database record
+      // Read the file to compute total pages
+      let detectedPages = 0;
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+        const doc = await loadingTask.promise;
+        detectedPages = doc.numPages;
+      } catch (err) {
+        console.warn("Could not determine page count during upload:", err);
+      }
+
+      // Create database record with detected page count
       const { data: pdfData, error: dbError } = await supabase
         .from("pdfs")
         .insert({
           user_id: userId,
           title: file.name.replace(".pdf", ""),
           file_path: fileName,
-          pages: 0, // Will be updated after processing
+          pages: detectedPages,
           file_size: file.size,
         })
         .select()
@@ -234,6 +249,21 @@ const SourceSelector = ({
         .download(pdfData.file_path);
 
       if (downloadError) throw downloadError;
+
+      // Compute total pages if not set (or if outdated)
+      try {
+        const arrayBuffer = await fileBlob.arrayBuffer();
+        const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+        const doc = await loadingTask.promise;
+        const numPages = doc.numPages;
+        if (pdf.pages !== numPages) {
+          setPdfs((prev) =>
+            prev.map((p) => (p.id === pdf.id ? { ...p, pages: numPages } : p))
+          );
+        }
+      } catch (err) {
+        console.warn("Could not determine page count:", err);
+      }
 
       // Create FormData and append the file
       const formData = new FormData();
