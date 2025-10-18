@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Document, Page, pdfjs } from "react-pdf";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,6 +12,11 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import "react-pdf/dist/Page/AnnotationLayer.css";
+import "react-pdf/dist/Page/TextLayer.css";
+
+// Set up the worker for react-pdf
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface PdfViewerProps {
   pdfId: string | null;
@@ -19,11 +25,16 @@ interface PdfViewerProps {
 const PdfViewer = ({ pdfId }: PdfViewerProps) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [zoom, setZoom] = useState(100);
-  const [totalPages, setTotalPages] = useState(120);
+  const [totalPages, setTotalPages] = useState<number>(0);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [pdfTitle, setPdfTitle] = useState("");
   const { toast } = useToast();
+
+  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    setTotalPages(numPages);
+    setCurrentPage(1);
+  };
 
   // Fetch PDF data when pdfId changes
   useEffect(() => {
@@ -45,7 +56,6 @@ const PdfViewer = ({ pdfId }: PdfViewerProps) => {
         if (pdfError) throw pdfError;
 
         setPdfTitle(pdfData.title);
-        setTotalPages(pdfData.pages || 120);
 
         // Get signed URL for the PDF file
         const { data: urlData, error: urlError } = await supabase.storage
@@ -185,28 +195,40 @@ const PdfViewer = ({ pdfId }: PdfViewerProps) => {
       </div>
 
       {/* PDF Canvas */}
-      <div className="flex-1 overflow-auto p-3 sm:p-6 bg-gray-100">
+      <div className="flex-1 overflow-auto p-3 sm:p-6 bg-gray-100 flex items-center justify-center">
         {pdfUrl ? (
-          <div className="h-full flex items-center justify-center">
-            <iframe
-              src={pdfUrl}
-              className="w-full h-full border-0 shadow-lg"
-              style={{
-                minHeight: "600px",
-                transform: `scale(${zoom / 100})`,
-                transformOrigin: 'top center',
-              }}
-              title={pdfTitle || "PDF Viewer"}
+          <Document
+            file={pdfUrl}
+            onLoadSuccess={onDocumentLoadSuccess}
+            loading={
+              <div className="text-center space-y-4">
+                <Loader2 className="h-12 w-12 mx-auto animate-spin text-primary" />
+                <p className="text-muted-foreground">Loading PDF...</p>
+              </div>
+            }
+            error={
+              <div className="text-center space-y-4 max-w-md px-4">
+                <FileText className="h-16 w-16 mx-auto text-muted-foreground" />
+                <p className="text-muted-foreground">
+                  Unable to load PDF. Please try uploading again.
+                </p>
+              </div>
+            }
+          >
+            <Page
+              pageNumber={currentPage}
+              scale={zoom / 100}
+              renderTextLayer={true}
+              renderAnnotationLayer={true}
+              className="shadow-lg"
             />
-          </div>
+          </Document>
         ) : (
-          <div className="h-full flex items-center justify-center">
-            <div className="text-center space-y-4 max-w-md px-4">
-              <FileText className="h-16 w-16 mx-auto text-muted-foreground" />
-              <p className="text-muted-foreground">
-                Unable to load PDF. Please try uploading again.
-              </p>
-            </div>
+          <div className="text-center space-y-4 max-w-md px-4">
+            <FileText className="h-16 w-16 mx-auto text-muted-foreground" />
+            <p className="text-muted-foreground">
+              Unable to load PDF. Please try uploading again.
+            </p>
           </div>
         )}
       </div>
