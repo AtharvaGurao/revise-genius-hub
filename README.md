@@ -149,7 +149,8 @@ I developed this project using **Lovable** as the main AI-assisted development p
 
 1. **Source Selector (Done)**
 
-<img width="1436" height="781" alt="Screenshot 2025-10-09 at 11 38 12 PM" src="https://github.com/user-attachments/assets/00507223-233d-42a7-921f-1d7b81b80b31" />
+<img width="1440" height="813" alt="Screenshot 2025-10-21 at 6 10 20 PM" src="https://github.com/user-attachments/assets/b6321d4a-2d36-43fb-9573-cec9738effff" />
+
 
    * Lets users choose between *All Uploaded PDFs* or a *Specific PDF*.
    * Includes pre-seeded Class XI Physics PDFs for testing.
