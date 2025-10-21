@@ -1,10 +1,10 @@
 # SmartRevise - AI-Powered Revision App
 
-A fully responsive web application designed for Indian Class XI-XII students to master their NCERT coursebooks through intelligent quizzes, AI tutoring, and progress tracking.
+A fully responsive web application designed for Indian Class XI-XII students to master their coursebooks through intelligent quizzes, AI tutoring, and progress tracking.
 
 ## 🎯 Features
 
-- **📚 PDF Viewer**: Upload and view NCERT PDFs with smooth navigation and zoom controls
+- **📚 PDF Viewer**: Upload and view PDFs with smooth navigation and zoom controls
 - **🧠 Smart Quiz Generator**: Generate MCQ, SAQ, and LAQ questions from your coursebooks
 - **📊 Progress Tracking**: Monitor accuracy, identify strengths and weaknesses
 - **💬 AI Chat Tutor**: Ask questions and get instant help with page citations
@@ -152,7 +152,7 @@ I developed this project using **Lovable** as the main AI-assisted development p
 <img width="1436" height="781" alt="Screenshot 2025-10-09 at 11 38 12 PM" src="https://github.com/user-attachments/assets/00507223-233d-42a7-921f-1d7b81b80b31" />
 
    * Lets users choose between *All Uploaded PDFs* or a *Specific PDF*.
-   * Includes pre-seeded NCERT Class XI Physics PDFs for testing.
+   * Includes pre-seeded Class XI Physics PDFs for testing.
    * Allows users to upload their own coursebook PDFs.
 
 2. **PDF Viewer (Done)**
@@ -282,4 +282,4 @@ Built for educational purposes. © 2025 SmartRevise.
 
 **Lovable Project URL**: https://lovable.dev/projects/ab1546db-9ed2-4eca-b794-6ec0e605103b
 
-**Note**: Designed specifically for Indian Class XI-XII students preparing with NCERT coursebooks.
+**Note**: Designed specifically for Indian Class XI-XII students preparing with their coursebooks.

@@ -13,7 +13,7 @@ const Home = () => {
         <div className="container mx-auto px-3 sm:px-4 py-12 sm:py-20 md:py-32 relative z-10">
           <div className="max-w-3xl mx-auto text-center text-white animate-slide-up px-2">
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-heading font-bold mb-4 sm:mb-6 leading-tight">
-              Master Your NCERT <br />
+              Master Your Studies <br />
               <span className="text-accent-foreground">Smart Revision</span> Starts Here
             </h1>
             <p className="text-base sm:text-lg md:text-xl mb-6 sm:mb-8 text-white/90">
@@ -62,7 +62,7 @@ const Home = () => {
             <FeatureCard
               icon={<BookOpen className="h-10 w-10" />}
               title="PDF Viewer"
-              description="Upload and view your NCERT PDFs with smooth navigation and zoom controls."
+              description="Upload and view your PDFs with smooth navigation and zoom controls."
             />
             <FeatureCard
               icon={<Brain className="h-10 w-10" />}
