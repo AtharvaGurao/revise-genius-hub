@@ -270,7 +270,7 @@ const SourceSelector = ({
       formData.append("file", fileBlob, `${pdf.title}.pdf`);
 
       // Send to n8n webhook
-      const response = await fetch("https://atharvagurao.app.n8n.cloud/webhook/upload", {
+      const response = await fetch("https://n8n.srv1116237.hstgr.cloud/webhook/smartrevise", {
         method: "POST",
         body: formData,
       });
