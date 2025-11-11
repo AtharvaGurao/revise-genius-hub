@@ -104,7 +104,7 @@ const ChatUI = ({ selectedPdfId }: ChatUIProps) => {
       const sessionId = getSessionId();
 
       // Call n8n webhook
-      const response = await fetch("https://atharvagurao.app.n8n.cloud/webhook/5c2ac1c1-66b3-4086-9e09-66c01abe3222/chat", {
+      const response = await fetch("https://n8n.srv1116237.hstgr.cloud/webhook/3be0ba89-c66b-4295-8897-150e3c16692e/chat", {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
