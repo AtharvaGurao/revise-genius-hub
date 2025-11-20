@@ -5,9 +5,10 @@ import PdfViewer from "@/components/workspace/PdfViewer";
 import ChatUI from "@/components/workspace/ChatUI";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
+import { useSelectedPdf } from "@/hooks/use-selected-pdf";
 
 const ChatWithPdf = () => {
-  const [selectedPdfId, setSelectedPdfId] = useState<string | null>(null);
+  const [selectedPdfId, setSelectedPdfId] = useSelectedPdf();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   return (

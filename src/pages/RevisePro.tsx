@@ -5,9 +5,10 @@ import QuizPanel from "@/components/workspace/QuizPanel";
 import ProgressMiniDashboard from "@/components/workspace/ProgressMiniDashboard";
 import { Button } from "@/components/ui/button";
 import { X, BarChart3 } from "lucide-react";
+import { useSelectedPdf } from "@/hooks/use-selected-pdf";
 
 const RevisePro = () => {
-  const [selectedPdfId, setSelectedPdfId] = useState<string | null>(null);
+  const [selectedPdfId, setSelectedPdfId] = useSelectedPdf();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
