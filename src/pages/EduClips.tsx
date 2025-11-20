@@ -4,9 +4,10 @@ import SourceSelector from "@/components/workspace/SourceSelector";
 import YouTubeRecommender from "@/components/workspace/YouTubeRecommender";
 import { Button } from "@/components/ui/button";
 import { Youtube, X } from "lucide-react";
+import { useSelectedPdf } from "@/hooks/use-selected-pdf";
 
 const EduClips = () => {
-  const [selectedPdfId, setSelectedPdfId] = useState<string | null>(null);
+  const [selectedPdfId, setSelectedPdfId] = useSelectedPdf();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
