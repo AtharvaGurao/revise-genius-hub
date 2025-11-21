@@ -30,14 +30,20 @@ serve(async (req) => {
     let pdfTitles = 'the selected documents';
     
     if (scope === 'selected' && pdfIds && pdfIds.length > 0) {
-      // Get PDF titles
+      // Check if PDFs are processed
       const { data: pdfs } = await supabase
         .from('pdfs')
-        .select('title')
+        .select('title, processed')
         .in('id', pdfIds);
       
       if (pdfs && pdfs.length > 0) {
         pdfTitles = pdfs.map(p => p.title).join(', ');
+        
+        // Check if any PDF is unprocessed
+        const unprocessedPdfs = pdfs.filter(p => !p.processed);
+        if (unprocessedPdfs.length > 0) {
+          throw new Error(`PDF "${unprocessedPdfs[0].title}" is still being processed. Please wait a moment and try again.`);
+        }
       }
 
       // Get actual PDF content from chunks
@@ -52,11 +58,13 @@ serve(async (req) => {
       
       if (chunks && chunks.length > 0) {
         pdfContent = chunks.map(c => c.chunk_text).join('\n\n');
+      } else {
+        throw new Error('No content found in PDF. The PDF may be empty or processing failed.');
       }
     }
 
     if (!pdfContent) {
-      throw new Error('No PDF content found. Please select a processed PDF.');
+      throw new Error('No PDF content available. Please select a processed PDF.');
     }
 
     // Create prompt based on question types
