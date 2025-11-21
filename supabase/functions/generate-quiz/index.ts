@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
+import * as pdfjs from "https://esm.sh/pdfjs-dist@4.0.379/legacy/build/pdf.mjs";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,7 +28,7 @@ serve(async (req) => {
 
     // Get PDF metadata and file path
     let pdfTitles = 'the selected documents';
-    let pdfBase64 = '';
+    let pdfText = '';
     
     if (scope === 'selected' && pdfIds && pdfIds.length > 0) {
       // Get PDF metadata
@@ -51,14 +51,26 @@ serve(async (req) => {
       if (downloadError) throw new Error(`Failed to download PDF: ${downloadError.message}`);
       if (!pdfBlob) throw new Error('PDF file is empty');
 
-      // Convert PDF to base64
+      // Extract text from PDF
       const arrayBuffer = await pdfBlob.arrayBuffer();
-      pdfBase64 = base64Encode(arrayBuffer);
+      const pdfData = new Uint8Array(arrayBuffer);
       
-      console.log('PDF downloaded and converted to base64, size:', pdfBase64.length);
+      console.log('Extracting text from PDF...');
+      const loadingTask = pdfjs.getDocument({ data: pdfData });
+      const pdfDocument = await loadingTask.promise;
+      
+      // Extract text from all pages
+      for (let pageNum = 1; pageNum <= pdfDocument.numPages; pageNum++) {
+        const page = await pdfDocument.getPage(pageNum);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map((item: any) => item.str).join(' ');
+        pdfText += `\n\n--- Page ${pageNum} ---\n${pageText}`;
+      }
+      
+      console.log('PDF text extracted, length:', pdfText.length);
     }
 
-    if (!pdfBase64) {
+    if (!pdfText) {
       throw new Error('No PDF content available. Please select a PDF.');
     }
 
@@ -87,30 +99,24 @@ serve(async (req) => {
           },
           {
             role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: `TASK: Generate ${count} questions STRICTLY based on the content in the PDF document. Types needed: ${selectedTypes}
+            content: `TASK: Generate ${count} questions STRICTLY based on the content below.
+
+PDF Content:
+${pdfText}
+
+Types needed: ${selectedTypes}
 
 CRITICAL RULES:
-- Use ONLY information from the PDF document provided
-- Do NOT use any external knowledge or information
-- Questions and answers must be directly verifiable from the document content
-- If the content doesn't support ${count} questions, generate as many as possible from available content
+- Use ONLY information from the PDF content provided above
+- Do NOT use any external knowledge
+- Questions must be directly verifiable from the document
+- If the content doesn't support ${count} questions, generate as many as possible
 
 For MCQs: Provide question, 4 options, correct answer (index 0-3), explanation citing the document, and topic.
 For SAQs: Provide question, model answer (2-3 sentences from document), and topic.
 For LAQs: Provide question, comprehensive answer (paragraph from document), and topic.
 
 Each question must include a topic field identifying the subject area from the document content.`
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:application/pdf;base64,${pdfBase64}`
-                }
-              }
-            ]
           }
         ],
         tools: [
