@@ -319,7 +319,7 @@ const SourceSelector = ({
       formData2.append("file", fileBlob, `${pdf.title}.pdf`);
       
       console.log("📤 Sending to analyze-pdf webhook...");
-      const analyzeResponse = await fetch("https://n8n.srv1116237.hstgr.cloud/webhook-test/analyze-pdf", {
+      const analyzeResponse = await fetch("https://n8n.srv1116237.hstgr.cloud/webhook/analyze-pdf", {
         method: "POST",
         body: formData2,
       });
