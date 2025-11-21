@@ -84,8 +84,8 @@ const QuizPanel = ({ selectedPdfId }: QuizPanelProps) => {
         return;
       }
 
-      // Call quiz generation edge function
-      const { data, error } = await supabase.functions.invoke('generate-quiz', {
+      // Call Pinecone-based quiz generation edge function
+      const { data, error } = await supabase.functions.invoke('generate-quiz-with-pinecone', {
         body: {
           pdfIds: selectedPdfId ? [selectedPdfId] : undefined,
           scope: selectedPdfId ? 'selected' : 'all',
@@ -104,10 +104,17 @@ const QuizPanel = ({ selectedPdfId }: QuizPanelProps) => {
       }
 
       console.log('Generated questions:', data.questions);
+      console.log('Source:', data.source, 'Chunks used:', data.chunksUsed);
       setQuestions(data.questions);
+      
+      // Show different message based on source
+      const sourceMessage = data.source === 'pinecone' 
+        ? `${questionCount} questions generated from PDF content (${data.chunksUsed} chunks used).`
+        : `${questionCount} questions generated. ${data.message || ''}`;
+      
       toast({
         title: "Quiz generated!",
-        description: `${questionCount} questions are ready.`,
+        description: sourceMessage,
       });
     } catch (error: any) {
       console.error("Quiz generation error:", error);

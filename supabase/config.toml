@@ -9,5 +9,8 @@ verify_jwt = true
 [functions.generate-quiz]
 verify_jwt = true
 
+[functions.generate-quiz-with-pinecone]
+verify_jwt = true
+
 [functions.youtube-recommendations]
 verify_jwt = true
