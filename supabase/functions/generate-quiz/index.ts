@@ -25,46 +25,41 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get PDF content from chunks
-    let pdfContent = '';
+    // Get PDF metadata and file path
     let pdfTitles = 'the selected documents';
+    let pdfBase64 = '';
     
     if (scope === 'selected' && pdfIds && pdfIds.length > 0) {
-      // Check if PDFs are processed
-      const { data: pdfs } = await supabase
+      // Get PDF metadata
+      const { data: pdfs, error: pdfError } = await supabase
         .from('pdfs')
-        .select('title, processed')
+        .select('title, file_path')
         .in('id', pdfIds);
       
-      if (pdfs && pdfs.length > 0) {
-        pdfTitles = pdfs.map(p => p.title).join(', ');
-        
-        // Check if any PDF is unprocessed
-        const unprocessedPdfs = pdfs.filter(p => !p.processed);
-        if (unprocessedPdfs.length > 0) {
-          throw new Error(`PDF "${unprocessedPdfs[0].title}" is still being processed. Please wait a moment and try again.`);
-        }
-      }
-
-      // Get actual PDF content from chunks
-      const { data: chunks } = await supabase
-        .from('pdf_chunks')
-        .select('chunk_text, page_number')
-        .in('pdf_id', pdfIds)
-        .order('pdf_id')
-        .order('page_number')
-        .order('chunk_index')
-        .limit(100); // Limit to first 100 chunks to avoid token limits
+      if (pdfError) throw new Error(`Failed to fetch PDF: ${pdfError.message}`);
+      if (!pdfs || pdfs.length === 0) throw new Error('PDF not found');
       
-      if (chunks && chunks.length > 0) {
-        pdfContent = chunks.map(c => c.chunk_text).join('\n\n');
-      } else {
-        throw new Error('No content found in PDF. The PDF may be empty or processing failed.');
-      }
+      pdfTitles = pdfs.map(p => p.title).join(', ');
+      const pdfFilePath = pdfs[0].file_path;
+
+      // Download PDF from storage
+      const { data: pdfBlob, error: downloadError } = await supabase.storage
+        .from('pdfs')
+        .download(pdfFilePath);
+      
+      if (downloadError) throw new Error(`Failed to download PDF: ${downloadError.message}`);
+      if (!pdfBlob) throw new Error('PDF file is empty');
+
+      // Convert PDF to base64
+      const arrayBuffer = await pdfBlob.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      pdfBase64 = btoa(String.fromCharCode(...bytes));
+      
+      console.log('PDF downloaded and converted to base64, size:', pdfBase64.length);
     }
 
-    if (!pdfContent) {
-      throw new Error('No PDF content available. Please select a processed PDF.');
+    if (!pdfBase64) {
+      throw new Error('No PDF content available. Please select a PDF.');
     }
 
     // Create prompt based on question types
@@ -76,7 +71,7 @@ serve(async (req) => {
 
     const selectedTypes = types.map((t: string) => questionTypePrompts[t]).join(', ');
     
-    // Use tool calling for structured output
+    // Use tool calling for structured output with PDF as multimodal input
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -92,18 +87,15 @@ serve(async (req) => {
           },
           {
             role: 'user',
-            content: `DOCUMENT CONTENT FROM "${pdfTitles}":
-
-${pdfContent}
-
----
-
-TASK: Generate ${count} questions STRICTLY based on the content above. Types needed: ${selectedTypes}
+            content: [
+              {
+                type: 'text',
+                text: `TASK: Generate ${count} questions STRICTLY based on the content in the PDF document. Types needed: ${selectedTypes}
 
 CRITICAL RULES:
-- Use ONLY information from the document content provided above
+- Use ONLY information from the PDF document provided
 - Do NOT use any external knowledge or information
-- Questions and answers must be directly verifiable from the text above
+- Questions and answers must be directly verifiable from the document content
 - If the content doesn't support ${count} questions, generate as many as possible from available content
 
 For MCQs: Provide question, 4 options, correct answer (index 0-3), explanation citing the document, and topic.
@@ -111,6 +103,14 @@ For SAQs: Provide question, model answer (2-3 sentences from document), and topi
 For LAQs: Provide question, comprehensive answer (paragraph from document), and topic.
 
 Each question must include a topic field identifying the subject area from the document content.`
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:application/pdf;base64,${pdfBase64}`
+                }
+              }
+            ]
           }
         ],
         tools: [
