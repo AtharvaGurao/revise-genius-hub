@@ -25,43 +25,96 @@ interface YouTubeRecommenderProps {
 const YouTubeRecommender = ({ selectedPdfId }: YouTubeRecommenderProps) => {
   const [videos, setVideos] = useState<VideoRecommendation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string>("");
   const { toast } = useToast();
 
   useEffect(() => {
+    console.log("🎬 YouTubeRecommender mounted");
+    console.log("📌 Selected PDF ID:", selectedPdfId);
+    
     // Load webhook data from localStorage
     loadWebhookData();
     
     // Listen for new webhook data
     const handleDataUpdate = () => {
+      console.log("📢 Received youtube-data-updated event");
       loadWebhookData();
     };
     
     window.addEventListener('youtube-data-updated', handleDataUpdate);
+    console.log("👂 Event listener attached");
     
     return () => {
       window.removeEventListener('youtube-data-updated', handleDataUpdate);
+      console.log("🔌 Event listener removed");
     };
   }, [selectedPdfId]);
 
   const loadWebhookData = () => {
+    console.log("📂 Loading webhook data from localStorage...");
     try {
       const storedData = localStorage.getItem('youtube-webhook-data');
-      if (storedData) {
-        const data = JSON.parse(storedData);
-        if (data.videos && Array.isArray(data.videos)) {
-          setVideos(data.videos);
-          setIsLoading(false);
-        }
+      console.log("💾 Raw localStorage data:", storedData);
+      
+      if (!storedData) {
+        console.log("⚠️ No data in localStorage");
+        setDebugInfo("No data in localStorage");
+        setVideos([]);
+        return;
       }
+      
+      const data = JSON.parse(storedData);
+      console.log("📦 Parsed data:", data);
+      
+      if (!data.videos) {
+        console.error("❌ No 'videos' property in data");
+        setDebugInfo("No 'videos' property in response");
+        toast({
+          title: "Invalid data format",
+          description: "The webhook response doesn't contain video data.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (!Array.isArray(data.videos)) {
+        console.error("❌ 'videos' is not an array");
+        setDebugInfo("'videos' is not an array");
+        toast({
+          title: "Invalid data format",
+          description: "The video data is in an unexpected format.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      console.log(`✅ Loaded ${data.videos.length} videos`);
+      setVideos(data.videos);
+      setLastUpdated(new Date());
+      setDebugInfo(`Loaded ${data.videos.length} videos successfully`);
+      setIsLoading(false);
+      
+      toast({
+        title: "Videos loaded",
+        description: `${data.videos.length} video recommendations available.`,
+      });
     } catch (error) {
-      console.error('Error loading webhook data:', error);
+      console.error('❌ Error loading webhook data:', error);
+      setDebugInfo(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast({
+        title: "Failed to load videos",
+        description: "There was an error loading the video recommendations.",
+        variant: "destructive",
+      });
     }
   };
 
   const fetchRecommendations = async () => {
-    // Just reload from localStorage
+    console.log("🔄 Manual refresh triggered");
+    setIsLoading(true);
     loadWebhookData();
+    setTimeout(() => setIsLoading(false), 500);
   };
 
   const handleOpenVideo = (videoUrl: string) => {
@@ -73,7 +126,7 @@ const YouTubeRecommender = ({ selectedPdfId }: YouTubeRecommenderProps) => {
     window.open(embedUrl, "_blank");
   };
 
-  if (isLoading || isProcessing) {
+  if (isLoading) {
     return (
       <div className="h-full flex flex-col">
         <div className="p-3 sm:p-4 border-b bg-card">
@@ -82,7 +135,7 @@ const YouTubeRecommender = ({ selectedPdfId }: YouTubeRecommenderProps) => {
             <h3 className="font-heading font-semibold text-sm sm:text-base">Recommended Videos</h3>
           </div>
           <p className="text-xs text-muted-foreground">
-            {isProcessing ? "Analyzing PDF content..." : "Loading recommendations..."}
+            Loading recommendations...
           </p>
         </div>
         <ScrollArea className="flex-1 p-3 sm:p-4">
@@ -106,13 +159,31 @@ const YouTubeRecommender = ({ selectedPdfId }: YouTubeRecommenderProps) => {
   return (
     <div className="h-full flex flex-col">
       <div className="p-3 sm:p-4 border-b bg-card">
-        <div className="flex items-center gap-2 mb-2">
-          <Youtube className="h-4 w-4 sm:h-5 sm:w-5 text-destructive flex-shrink-0" />
-          <h3 className="font-heading font-semibold text-sm sm:text-base">Recommended Videos</h3>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Youtube className="h-4 w-4 sm:h-5 sm:w-5 text-destructive flex-shrink-0" />
+            <h3 className="font-heading font-semibold text-sm sm:text-base">Recommended Videos</h3>
+          </div>
+          {lastUpdated && (
+            <span className="text-xs text-muted-foreground">
+              Updated {lastUpdated.toLocaleTimeString()}
+            </span>
+          )}
         </div>
         <p className="text-xs text-muted-foreground">
-          Based on {selectedPdfId ? "selected PDF" : "all your PDFs"}
+          {videos.length > 0 
+            ? `${videos.length} video${videos.length === 1 ? '' : 's'} found` 
+            : "Select a PDF to get recommendations"}
         </p>
+        {debugInfo && (
+          <details className="mt-2">
+            <summary className="text-xs text-muted-foreground cursor-pointer">Debug Info</summary>
+            <pre className="text-xs bg-muted p-2 rounded mt-1 overflow-auto max-h-20">
+              {debugInfo}
+              {"\n"}localStorage keys: {Object.keys(localStorage).join(", ")}
+            </pre>
+          </details>
+        )}
       </div>
 
       <ScrollArea className="flex-1 p-3 sm:p-4">

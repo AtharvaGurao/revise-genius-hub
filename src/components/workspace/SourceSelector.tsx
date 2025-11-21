@@ -232,9 +232,39 @@ const SourceSelector = ({
     }
   };
 
+  const validateWebhookResponse = (data: any): boolean => {
+    console.log("🔍 Validating webhook response:", data);
+    if (!data || typeof data !== 'object') {
+      console.error("❌ Invalid response: not an object", data);
+      return false;
+    }
+    if (!Array.isArray(data.videos)) {
+      console.error("❌ Invalid response: videos is not an array", data);
+      return false;
+    }
+    const isValid = data.videos.every((video: any) => 
+      video.video_title && 
+      video.channel_name && 
+      video.thumbnail && 
+      video.video_url && 
+      video.embed_url
+    );
+    console.log(isValid ? "✅ Validation passed" : "❌ Validation failed - missing required fields");
+    return isValid;
+  };
+
   const sendPdfToWebhook = async (pdf: PDF) => {
+    console.log("🚀 Starting webhook process for PDF:", pdf.title);
+    
+    // Show loading toast
+    toast({
+      title: "Analyzing PDF...",
+      description: "Sending to analysis service and fetching video recommendations.",
+    });
+
     try {
       // Get the PDF file from Supabase storage
+      console.log("📥 Fetching PDF from storage...");
       const { data: pdfData } = await supabase
         .from("pdfs")
         .select("file_path")
@@ -249,6 +279,7 @@ const SourceSelector = ({
         .download(pdfData.file_path);
 
       if (downloadError) throw downloadError;
+      console.log("✅ PDF downloaded successfully");
 
       // Compute total pages if not set (or if outdated)
       try {
@@ -270,48 +301,63 @@ const SourceSelector = ({
       formData.append("file", fileBlob, `${pdf.title}.pdf`);
 
       // Send to primary n8n webhook
+      console.log("📤 Sending to primary webhook...");
       const response = await fetch("https://n8n.srv1116237.hstgr.cloud/webhook/smartrevise", {
         method: "POST",
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error(`Webhook returned status ${response.status}`);
+        throw new Error(`Primary webhook returned status ${response.status}`);
       }
+      console.log("✅ Primary webhook successful");
 
       // Also send to analyze-pdf webhook and capture response
       const formData2 = new FormData();
       formData2.append("file", fileBlob, `${pdf.title}.pdf`);
       
-      try {
-        const analyzeResponse = await fetch("https://n8n.srv1116237.hstgr.cloud/webhook-test/analyze-pdf", {
-          method: "POST",
-          body: formData2,
-        });
-        
-        if (analyzeResponse.ok) {
-          const webhookData = await analyzeResponse.json();
-          // Store the webhook response for YouTubeRecommender
-          localStorage.setItem('youtube-webhook-data', JSON.stringify(webhookData));
-          // Trigger a storage event for other components to react
-          window.dispatchEvent(new Event('youtube-data-updated'));
-        }
-      } catch (err) {
-        console.warn("Secondary webhook failed:", err);
+      console.log("📤 Sending to analyze-pdf webhook...");
+      const analyzeResponse = await fetch("https://n8n.srv1116237.hstgr.cloud/webhook-test/analyze-pdf", {
+        method: "POST",
+        body: formData2,
+      });
+      
+      console.log("📊 Analyze webhook response status:", analyzeResponse.status);
+      
+      if (!analyzeResponse.ok) {
+        throw new Error(`Analyze webhook returned status ${analyzeResponse.status}`);
       }
+      
+      const webhookData = await analyzeResponse.json();
+      console.log("📦 Raw webhook response:", webhookData);
+      
+      // Validate response structure
+      if (!validateWebhookResponse(webhookData)) {
+        throw new Error("Invalid webhook response format");
+      }
+      
+      console.log(`✅ Received ${webhookData.videos.length} video recommendations`);
+      
+      // Store the webhook response for YouTubeRecommender
+      localStorage.setItem('youtube-webhook-data', JSON.stringify(webhookData));
+      console.log("💾 Stored in localStorage");
+      
+      // Trigger a storage event for other components to react
+      window.dispatchEvent(new Event('youtube-data-updated'));
+      console.log("📢 Dispatched youtube-data-updated event");
 
       toast({
-        title: "PDF sent to webhook",
-        description: `"${pdf.title}" was successfully sent to n8n.`,
+        title: "Analysis complete!",
+        description: `Found ${webhookData.videos.length} video recommendations for "${pdf.title}".`,
       });
       
       // Notify parent to switch to chat tab
       onPdfSentToWebhook?.();
     } catch (error: any) {
-      console.error("Webhook error:", error);
+      console.error("❌ Webhook error:", error);
       toast({
-        title: "Webhook failed",
-        description: error.message || "Could not send PDF to webhook.",
+        title: "Analysis failed",
+        description: error.message || "Could not analyze PDF. Please try again.",
         variant: "destructive",
       });
     }
