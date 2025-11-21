@@ -156,42 +156,8 @@ const SourceSelector = ({
 
       toast({
         title: "PDF uploaded successfully",
-        description: `"${newPdf.title}" is being processed...`,
+        description: `"${newPdf.title}" is now available in your library.`,
       });
-
-      // Trigger PDF processing in background
-      console.log(`🔄 Starting background processing for PDF: ${pdfData.id}`);
-      
-      supabase.functions
-        .invoke('process-pdf', {
-          body: { pdfId: pdfData.id }
-        })
-        .then(({ data, error }) => {
-          if (error) {
-            console.error('❌ PDF processing error:', error);
-            toast({
-              title: "Processing failed",
-              description: error.message || "Text extraction failed. Please try uploading again.",
-              variant: "destructive",
-            });
-          } else {
-            console.log('✅ PDF processed successfully:', data);
-            // Refresh PDF list to get updated status
-            fetchPdfs();
-            toast({
-              title: "PDF ready!",
-              description: `"${newPdf.title}" has been processed and is ready for quiz generation.`,
-            });
-          }
-        })
-        .catch((err) => {
-          console.error('❌ PDF processing failed:', err);
-          toast({
-            title: "Processing error",
-            description: "An unexpected error occurred. Please try again.",
-            variant: "destructive",
-          });
-        });
       
       e.target.value = "";
     } catch (error: any) {
@@ -299,32 +265,6 @@ const SourceSelector = ({
     });
 
     try {
-      // First, ensure PDF is processed for quiz generation
-      if (!(pdf as any).processed) {
-        console.log("🔄 PDF not processed yet, triggering processing...");
-        toast({
-          title: "Processing PDF",
-          description: "Extracting text from PDF. This may take a moment...",
-        });
-        
-        const { error: processError } = await supabase.functions.invoke('process-pdf', {
-          body: { pdfId: pdf.id }
-        });
-        
-        if (processError) {
-          console.error("⚠️ PDF processing issue:", processError);
-          toast({
-            title: "Processing issue",
-            description: "Could not process PDF. Please try again.",
-            variant: "destructive",
-          });
-        } else {
-          console.log("✅ PDF processing initiated successfully");
-          // Refresh PDF list to update status
-          fetchPdfs();
-        }
-      }
-
       // Get the PDF file from Supabase storage
       console.log("📥 Fetching PDF from storage...");
       const { data: pdfData } = await supabase

@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import * as pdfjs from "https://esm.sh/pdfjs-dist@4.0.379/legacy/build/pdf.mjs";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,52 +25,17 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get PDF metadata and file path
-    let pdfTitles = 'the selected documents';
-    let pdfText = '';
-    
+    // Get PDF context
+    let pdfContext = 'NCERT textbooks for Indian Class XI-XII';
     if (scope === 'selected' && pdfIds && pdfIds.length > 0) {
-      // Get PDF metadata
-      const { data: pdfs, error: pdfError } = await supabase
+      const { data: pdfs } = await supabase
         .from('pdfs')
-        .select('title, file_path')
+        .select('title')
         .in('id', pdfIds);
       
-      if (pdfError) throw new Error(`Failed to fetch PDF: ${pdfError.message}`);
-      if (!pdfs || pdfs.length === 0) throw new Error('PDF not found');
-      
-      pdfTitles = pdfs.map(p => p.title).join(', ');
-      const pdfFilePath = pdfs[0].file_path;
-
-      // Download PDF from storage
-      const { data: pdfBlob, error: downloadError } = await supabase.storage
-        .from('pdfs')
-        .download(pdfFilePath);
-      
-      if (downloadError) throw new Error(`Failed to download PDF: ${downloadError.message}`);
-      if (!pdfBlob) throw new Error('PDF file is empty');
-
-      // Extract text from PDF
-      const arrayBuffer = await pdfBlob.arrayBuffer();
-      const pdfData = new Uint8Array(arrayBuffer);
-      
-      console.log('Extracting text from PDF...');
-      const loadingTask = pdfjs.getDocument({ data: pdfData });
-      const pdfDocument = await loadingTask.promise;
-      
-      // Extract text from all pages
-      for (let pageNum = 1; pageNum <= pdfDocument.numPages; pageNum++) {
-        const page = await pdfDocument.getPage(pageNum);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items.map((item: any) => item.str).join(' ');
-        pdfText += `\n\n--- Page ${pageNum} ---\n${pageText}`;
+      if (pdfs && pdfs.length > 0) {
+        pdfContext = pdfs.map(p => p.title).join(', ');
       }
-      
-      console.log('PDF text extracted, length:', pdfText.length);
-    }
-
-    if (!pdfText) {
-      throw new Error('No PDF content available. Please select a PDF.');
     }
 
     // Create prompt based on question types
@@ -83,7 +47,7 @@ serve(async (req) => {
 
     const selectedTypes = types.map((t: string) => questionTypePrompts[t]).join(', ');
     
-    // Use tool calling for structured output with PDF as multimodal input
+    // Use tool calling for structured output
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -95,28 +59,19 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: 'You are an expert question generator. You create exam-style questions based ONLY on the provided document content. Never use external knowledge or make assumptions beyond what is explicitly stated in the document.'
+            content: 'You are an expert NCERT exam question generator for Indian Class XI-XII students. Generate high-quality, exam-style questions.'
           },
           {
             role: 'user',
-            content: `TASK: Generate ${count} questions STRICTLY based on the content below.
+            content: `Generate ${count} questions from "${pdfContext}". Types: ${selectedTypes}. 
 
-PDF Content:
-${pdfText}
+For MCQs: Provide question, 4 options (A, B, C, D), correct answer, explanation, and topic.
+For SAQs: Provide question, model answer (2-3 sentences), and topic.
+For LAQs: Provide question, comprehensive answer (1 paragraph), and topic.
 
-Types needed: ${selectedTypes}
+IMPORTANT: Each question must include a topic field identifying the subject area (e.g., "Physics - Mechanics", "Chemistry - Organic Reactions", "Biology - Cell Structure").
 
-CRITICAL RULES:
-- Use ONLY information from the PDF content provided above
-- Do NOT use any external knowledge
-- Questions must be directly verifiable from the document
-- If the content doesn't support ${count} questions, generate as many as possible
-
-For MCQs: Provide question, 4 options, correct answer (index 0-3), explanation citing the document, and topic.
-For SAQs: Provide question, model answer (2-3 sentences from document), and topic.
-For LAQs: Provide question, comprehensive answer (paragraph from document), and topic.
-
-Each question must include a topic field identifying the subject area from the document content.`
+Make questions curriculum-aligned and exam-relevant.`
           }
         ],
         tools: [

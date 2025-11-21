@@ -1,14 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import pdfParse from "https://esm.sh/pdf-parse@1.1.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Chunk text into smaller pieces with page tracking (increased from 500 to 1000 for faster processing)
-function chunkText(text: string, pageNumber: number, chunkSize = 1000): Array<{text: string, page: number}> {
+// Chunk text into smaller pieces with page tracking
+function chunkText(text: string, pageNumber: number, chunkSize = 500): Array<{text: string, page: number}> {
   const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
   const chunks: Array<{text: string, page: number}> = [];
   let currentChunk = '';
@@ -31,6 +30,8 @@ function chunkText(text: string, pageNumber: number, chunkSize = 1000): Array<{t
 
 // Generate embedding using Lovable AI
 async function generateEmbedding(text: string, apiKey: string): Promise<number[]> {
+  console.log('Generating embedding with Lovable AI...');
+  
   const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
     method: 'POST',
     headers: {
@@ -51,6 +52,7 @@ async function generateEmbedding(text: string, apiKey: string): Promise<number[]
   }
 
   const result = await response.json();
+  console.log('Embedding generated successfully');
   return result.data[0].embedding;
 }
 
@@ -73,8 +75,6 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log(`Starting PDF processing for ID: ${pdfId}`);
-
     // Get PDF metadata
     const { data: pdfData, error: pdfError } = await supabase
       .from('pdfs')
@@ -86,8 +86,6 @@ serve(async (req) => {
       throw new Error('PDF not found');
     }
 
-    console.log(`Processing PDF: ${pdfData.title} (${pdfData.pages} pages)`);
-
     // Download PDF from storage
     const { data: fileData, error: downloadError } = await supabase.storage
       .from('pdfs')
@@ -97,35 +95,58 @@ serve(async (req) => {
       throw new Error('Failed to download PDF');
     }
 
-    // Convert to buffer for pdf-parse
+    // Convert to base64
     const buffer = await fileData.arrayBuffer();
-    console.log(`PDF size: ${(buffer.byteLength / 1024 / 1024).toFixed(2)}MB`);
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
 
-    // Parse PDF to extract text using pdf-parse
-    console.log('Extracting text from PDF using pdf-parse...');
-    const uint8Array = new Uint8Array(buffer);
-    const pdfData_parsed = await pdfParse(uint8Array);
-    
-    if (!pdfData_parsed.text || pdfData_parsed.text.trim().length === 0) {
-      console.warn('No text content extracted from PDF');
-      throw new Error('No text content found in PDF. The file may be empty or contain only images.');
+    // Send to Lovable AI to extract text with page numbers
+    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: `Extract ALL text content from this PDF. For each page, format as: "PAGE X: [content]". Be thorough and extract everything.`
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:application/pdf;base64,${base64}`
+                }
+              }
+            ]
+          }
+        ],
+      }),
+    });
+
+    if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
+      console.error('AI API error:', errorText);
+      throw new Error(`AI processing failed: ${aiResponse.status}`);
     }
 
-    console.log(`Extracted ${pdfData_parsed.text.length} characters from ${pdfData_parsed.numpages} pages`);
+    const aiResult = await aiResponse.json();
+    const extractedText = aiResult.choices[0].message.content;
 
-    // For simplicity, we'll estimate page breaks by splitting text evenly
-    // (pdf-parse doesn't provide page-by-page text, so we estimate)
-    const totalChars = pdfData_parsed.text.length;
-    const charsPerPage = Math.ceil(totalChars / pdfData_parsed.numpages);
+    // Parse text by pages
+    const pageRegex = /PAGE (\d+):([\s\S]*?)(?=PAGE \d+:|$)/gi;
+    const matches = [...extractedText.matchAll(pageRegex)];
     
     let allChunks: Array<{text: string, page: number, index: number}> = [];
     let chunkIndex = 0;
 
-    // Split text into page-sized sections and chunk each section
-    for (let pageNum = 1; pageNum <= pdfData_parsed.numpages; pageNum++) {
-      const startChar = (pageNum - 1) * charsPerPage;
-      const endChar = Math.min(pageNum * charsPerPage, totalChars);
-      const pageText = pdfData_parsed.text.slice(startChar, endChar).trim();
+    for (const match of matches) {
+      const pageNum = parseInt(match[1]);
+      const pageText = match[2].trim();
       
       if (pageText) {
         const chunks = chunkText(pageText, pageNum);
@@ -133,60 +154,27 @@ serve(async (req) => {
       }
     }
 
-    if (allChunks.length === 0) {
-      console.warn('No chunks created from PDF text');
-      throw new Error('Failed to create text chunks from PDF.');
-    }
+    console.log(`Created ${allChunks.length} chunks from ${matches.length} pages`);
 
-    console.log(`Created ${allChunks.length} chunks from ${pdfData_parsed.numpages} pages`);
-
-    // Process embeddings in parallel batches for 5-8x speed improvement
-    console.log(`Generating embeddings for ${allChunks.length} chunks with parallel processing...`);
-    const CONCURRENCY = 5; // Process 5 chunks simultaneously
-    const startTime = Date.now();
-    let processedCount = 0;
-    
-    // Process chunks in parallel batches
-    for (let i = 0; i < allChunks.length; i += CONCURRENCY) {
-      const batch = allChunks.slice(i, Math.min(i + CONCURRENCY, allChunks.length));
+    // Generate embeddings and store chunks
+    for (const chunk of allChunks) {
+      const embedding = await generateEmbedding(chunk.text, LOVABLE_API_KEY);
       
-      // Process current batch in parallel
-      await Promise.all(batch.map(async (chunk) => {
-        try {
-          const embedding = await generateEmbedding(chunk.text, LOVABLE_API_KEY);
-          
-          const { error: insertError } = await supabase
-            .from('pdf_chunks')
-            .insert({
-              pdf_id: pdfId,
-              user_id: pdfData.user_id,
-              chunk_text: chunk.text,
-              page_number: chunk.page,
-              chunk_index: chunk.index,
-              embedding,
-            });
+      const { error: insertError } = await supabase
+        .from('pdf_chunks')
+        .insert({
+          pdf_id: pdfId,
+          user_id: pdfData.user_id,
+          chunk_text: chunk.text,
+          page_number: chunk.page,
+          chunk_index: chunk.index,
+          embedding,
+        });
 
-          if (insertError) {
-            console.error('Failed to insert chunk:', insertError);
-            throw insertError;
-          }
-          
-          processedCount++;
-        } catch (error) {
-          console.error(`Failed to process chunk ${chunk.index}:`, error);
-          throw error;
-        }
-      }));
-      
-      // Log progress after each batch
-      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      const rate = processedCount / (Date.now() - startTime) * 1000;
-      const remaining = Math.ceil((allChunks.length - processedCount) / rate);
-      console.log(`Progress: ${processedCount}/${allChunks.length} chunks (${elapsed}s elapsed, ~${remaining}s remaining)`);
+      if (insertError) {
+        console.error('Failed to insert chunk:', insertError);
+      }
     }
-    
-    const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.log(`✅ Successfully processed all ${allChunks.length} chunks in ${totalTime}s (avg ${(processedCount / (Date.now() - startTime) * 1000).toFixed(2)} chunks/sec)`);
 
     // Mark as processed
     const { error: updateError } = await supabase
@@ -211,12 +199,8 @@ serve(async (req) => {
     );
   } catch (error: any) {
     console.error('Process PDF error:', error);
-    
     return new Response(
-      JSON.stringify({ 
-        error: error.message || 'Failed to process PDF',
-        details: error.toString()
-      }),
+      JSON.stringify({ error: error.message }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500 
