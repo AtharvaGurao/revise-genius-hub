@@ -279,16 +279,26 @@ const SourceSelector = ({
         throw new Error(`Webhook returned status ${response.status}`);
       }
 
-      // Also send to analyze-pdf webhook
+      // Also send to analyze-pdf webhook and capture response
       const formData2 = new FormData();
       formData2.append("file", fileBlob, `${pdf.title}.pdf`);
       
-      await fetch("https://n8n.srv1116237.hstgr.cloud/webhook-test/analyze-pdf", {
-        method: "POST",
-        body: formData2,
-      }).catch(err => {
+      try {
+        const analyzeResponse = await fetch("https://n8n.srv1116237.hstgr.cloud/webhook-test/analyze-pdf", {
+          method: "POST",
+          body: formData2,
+        });
+        
+        if (analyzeResponse.ok) {
+          const webhookData = await analyzeResponse.json();
+          // Store the webhook response for YouTubeRecommender
+          localStorage.setItem('youtube-webhook-data', JSON.stringify(webhookData));
+          // Trigger a storage event for other components to react
+          window.dispatchEvent(new Event('youtube-data-updated'));
+        }
+      } catch (err) {
         console.warn("Secondary webhook failed:", err);
-      });
+      }
 
       toast({
         title: "PDF sent to webhook",
