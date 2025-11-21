@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -52,8 +53,7 @@ serve(async (req) => {
 
       // Convert PDF to base64
       const arrayBuffer = await pdfBlob.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuffer);
-      pdfBase64 = btoa(String.fromCharCode(...bytes));
+      pdfBase64 = base64Encode(arrayBuffer);
       
       console.log('PDF downloaded and converted to base64, size:', pdfBase64.length);
     }
