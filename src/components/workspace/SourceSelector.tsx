@@ -330,8 +330,36 @@ const SourceSelector = ({
         throw new Error(`Analyze webhook returned status ${analyzeResponse.status}`);
       }
       
-      const webhookData = await analyzeResponse.json();
-      console.log("📦 Raw webhook response:", webhookData);
+      // Check Content-Type header
+      const contentType = analyzeResponse.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const responseText = await analyzeResponse.text();
+        console.warn("⚠️ Webhook not returning JSON. Content-Type:", contentType);
+        console.warn("Response text:", responseText.substring(0, 200));
+        throw new Error(`Webhook returned non-JSON response (${contentType || 'unknown'}). Please check your n8n workflow.`);
+      }
+      
+      // Read response as text first for better error handling
+      const responseText = await analyzeResponse.text();
+      console.log("📄 Raw response text (first 500 chars):", responseText.substring(0, 500));
+      
+      // Check if response is empty
+      if (!responseText || responseText.trim().length === 0) {
+        console.error("❌ Webhook returned empty response");
+        throw new Error("Webhook returned empty response. Please check your n8n workflow is configured to return JSON.");
+      }
+      
+      // Try to parse JSON with proper error handling
+      let webhookData;
+      try {
+        webhookData = JSON.parse(responseText);
+        console.log("✅ JSON parsed successfully");
+        console.log("📦 Raw webhook response:", webhookData);
+      } catch (parseError) {
+        console.error("❌ JSON parse error:", parseError);
+        console.error("Response was:", responseText);
+        throw new Error(`Webhook returned invalid JSON: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+      }
       
       // Validate response structure
       if (!validateWebhookResponse(webhookData)) {
