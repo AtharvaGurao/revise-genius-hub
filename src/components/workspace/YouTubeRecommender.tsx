@@ -9,12 +9,13 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 interface VideoRecommendation {
-  videoId: string;
-  title: string;
+  video_title: string;
+  channel_name: string;
   thumbnail: string;
-  channel: string;
-  duration: string;
-  views?: string;
+  description: string;
+  published_date: string;
+  video_url: string;
+  embed_url: string;
 }
 
 interface YouTubeRecommenderProps {
@@ -28,112 +29,48 @@ const YouTubeRecommender = ({ selectedPdfId }: YouTubeRecommenderProps) => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Fetch recommendations when a PDF is selected
-    if (selectedPdfId) {
-      fetchRecommendations();
-    } else {
-      setVideos([]);
-    }
+    // Load webhook data from localStorage
+    loadWebhookData();
+    
+    // Listen for new webhook data
+    const handleDataUpdate = () => {
+      loadWebhookData();
+    };
+    
+    window.addEventListener('youtube-data-updated', handleDataUpdate);
+    
+    return () => {
+      window.removeEventListener('youtube-data-updated', handleDataUpdate);
+    };
   }, [selectedPdfId]);
 
-  const fetchRecommendations = async (retryCount = 0) => {
-    setIsLoading(true);
-    setIsProcessing(false);
-    setVideos([]); // Clear previous videos
-    
+  const loadWebhookData = () => {
     try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError) {
-        console.error('Session error:', sessionError);
-        throw new Error('Failed to verify authentication');
-      }
-      
-      if (!session) {
-        console.log('No active session - skipping video fetch');
-        setIsLoading(false);
-        return;
-      }
-
-      const pdfIds = selectedPdfId ? [selectedPdfId] : [];
-      const scope = selectedPdfId ? 'selected' : 'all';
-      
-      console.log('Fetching YouTube recommendations:', { 
-        pdfIds, 
-        scope,
-        hasSession: !!session,
-        userId: session.user.id,
-        retryCount 
-      });
-      
-      const { data, error } = await supabase.functions.invoke('youtube-recommendations', {
-        body: { 
-          pdfIds,
-          scope 
-        },
-      });
-
-      if (error) {
-        console.error('Edge function error:', error);
-        throw new Error(error.message || 'Failed to fetch recommendations');
-      }
-
-      console.log('Received video data:', data);
-
-      // Check if PDFs are still being processed
-      if (data?.processing) {
-        setIsProcessing(true);
-        toast({
-          title: "Processing PDFs",
-          description: data.message || "Your PDFs are being analyzed. Please wait...",
-        });
-
-        // Retry after 3 seconds, max 5 retries
-        if (retryCount < 5) {
-          setTimeout(() => {
-            fetchRecommendations(retryCount + 1);
-          }, 3000);
-        } else {
-          toast({
-            title: "Processing taking longer than expected",
-            description: "Please try refreshing in a moment",
-            variant: "destructive",
-          });
+      const storedData = localStorage.getItem('youtube-webhook-data');
+      if (storedData) {
+        const data = JSON.parse(storedData);
+        if (data.videos && Array.isArray(data.videos)) {
+          setVideos(data.videos);
           setIsLoading(false);
-          setIsProcessing(false);
         }
-        return;
-      }
-
-      if (data?.videos && Array.isArray(data.videos)) {
-        setVideos(data.videos);
-        console.log(`Loaded ${data.videos.length} video recommendations`);
-        if (data.videos.length === 0 && data.message) {
-          toast({
-            title: "No videos available",
-            description: data.message,
-          });
-        }
-      } else {
-        setVideos([]);
       }
     } catch (error) {
-      console.error('Error in fetchRecommendations:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Could not load video recommendations';
-      toast({
-        title: "Failed to load recommendations",
-        description: errorMessage,
-        variant: "destructive",
-      });
-      setVideos([]);
-    } finally {
-      setIsLoading(false);
-      setIsProcessing(false);
+      console.error('Error loading webhook data:', error);
     }
   };
 
-  const handleOpenVideo = (videoId: string) => {
-    window.open(`https://www.youtube.com/watch?v=${videoId}`, "_blank");
+  const fetchRecommendations = async () => {
+    // Just reload from localStorage
+    loadWebhookData();
+  };
+
+  const handleOpenVideo = (videoUrl: string) => {
+    window.open(videoUrl, "_blank");
+  };
+
+  const handlePlayEmbed = (embedUrl: string) => {
+    // Open embed URL in a new window/tab
+    window.open(embedUrl, "_blank");
   };
 
   if (isLoading || isProcessing) {
@@ -188,42 +125,64 @@ const YouTubeRecommender = ({ selectedPdfId }: YouTubeRecommenderProps) => {
               </p>
             </div>
           ) : (
-            videos.map((video) => (
-              <Card key={video.videoId} className="overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="relative">
-                  <img
-                    src={video.thumbnail}
-                    alt={video.title}
-                    className="w-full h-32 sm:h-40 object-cover"
-                  />
-                  <div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">
-                    {video.duration}
-                  </div>
-                  <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
-                    <Play className="h-10 w-10 sm:h-12 sm:w-12 text-white" />
-                  </div>
-                </div>
-                <div className="p-3 sm:p-4 space-y-2">
-                  <h4 className="font-medium text-xs sm:text-sm line-clamp-2 leading-snug">
-                    {video.title}
-                  </h4>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1 min-w-0 flex-1">
-                      <p className="text-xs text-muted-foreground truncate">{video.channel}</p>
-                      {video.views && (
-                        <p className="text-xs text-muted-foreground">{video.views}</p>
-                      )}
+            videos.map((video, index) => (
+              <Card key={index} className="overflow-hidden hover:shadow-lg transition-shadow">
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                  {/* Thumbnail */}
+                  <div className="relative sm:w-64 flex-shrink-0 cursor-pointer" onClick={() => handlePlayEmbed(video.embed_url)}>
+                    <img
+                      src={video.thumbnail}
+                      alt={video.video_title}
+                      className="w-full h-40 sm:h-36 object-cover rounded-t-lg sm:rounded-l-lg sm:rounded-tr-none"
+                    />
+                    <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 hover:opacity-100 rounded-t-lg sm:rounded-l-lg sm:rounded-tr-none">
+                      <Play className="h-12 w-12 text-white" />
                     </div>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full text-xs"
-                    onClick={() => handleOpenVideo(video.videoId)}
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1.5" />
-                    Watch on YouTube
-                  </Button>
+                  
+                  {/* Video Details */}
+                  <div className="flex-1 p-3 sm:p-4 space-y-2 min-w-0">
+                    <h4 className="font-semibold text-sm sm:text-base line-clamp-2 leading-snug">
+                      {video.video_title}
+                    </h4>
+                    
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="truncate">{video.channel_name}</span>
+                      {video.published_date && (
+                        <>
+                          <span>•</span>
+                          <span>{new Date(video.published_date).toLocaleDateString()}</span>
+                        </>
+                      )}
+                    </div>
+                    
+                    {video.description && (
+                      <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                        {video.description}
+                      </p>
+                    )}
+                    
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        size="sm"
+                        variant="default"
+                        className="text-xs"
+                        onClick={() => handlePlayEmbed(video.embed_url)}
+                      >
+                        <Play className="h-3 w-3 mr-1.5" />
+                        Play
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs"
+                        onClick={() => handleOpenVideo(video.video_url)}
+                      >
+                        <ExternalLink className="h-3 w-3 mr-1.5" />
+                        Watch on YouTube
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </Card>
             ))
@@ -236,7 +195,7 @@ const YouTubeRecommender = ({ selectedPdfId }: YouTubeRecommenderProps) => {
           variant="outline"
           size="sm"
           className="w-full text-xs sm:text-sm"
-          onClick={() => fetchRecommendations(0)}
+          onClick={() => fetchRecommendations()}
           disabled={isLoading}
         >
           Refresh Recommendations
