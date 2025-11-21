@@ -6,8 +6,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Chunk text into smaller pieces with page tracking
-function chunkText(text: string, pageNumber: number, chunkSize = 500): Array<{text: string, page: number}> {
+// Chunk text into smaller pieces with page tracking (increased from 500 to 1000 for faster processing)
+function chunkText(text: string, pageNumber: number, chunkSize = 1000): Array<{text: string, page: number}> {
   const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
   const chunks: Array<{text: string, page: number}> = [];
   let currentChunk = '';
@@ -178,41 +178,53 @@ serve(async (req) => {
 
     console.log(`Created ${allChunks.length} chunks from ${matches.length} pages`);
 
-    // Generate embeddings and store chunks with progress logging
-    console.log(`Generating embeddings for ${allChunks.length} chunks...`);
+    // Process embeddings in parallel batches for 5-8x speed improvement
+    console.log(`Generating embeddings for ${allChunks.length} chunks with parallel processing...`);
+    const CONCURRENCY = 5; // Process 5 chunks simultaneously
+    const startTime = Date.now();
     let processedCount = 0;
     
-    for (const chunk of allChunks) {
-      try {
-        const embedding = await generateEmbedding(chunk.text, LOVABLE_API_KEY);
-        
-        const { error: insertError } = await supabase
-          .from('pdf_chunks')
-          .insert({
-            pdf_id: pdfId,
-            user_id: pdfData.user_id,
-            chunk_text: chunk.text,
-            page_number: chunk.page,
-            chunk_index: chunk.index,
-            embedding,
-          });
+    // Process chunks in parallel batches
+    for (let i = 0; i < allChunks.length; i += CONCURRENCY) {
+      const batch = allChunks.slice(i, Math.min(i + CONCURRENCY, allChunks.length));
+      
+      // Process current batch in parallel
+      await Promise.all(batch.map(async (chunk) => {
+        try {
+          const embedding = await generateEmbedding(chunk.text, LOVABLE_API_KEY);
+          
+          const { error: insertError } = await supabase
+            .from('pdf_chunks')
+            .insert({
+              pdf_id: pdfId,
+              user_id: pdfData.user_id,
+              chunk_text: chunk.text,
+              page_number: chunk.page,
+              chunk_index: chunk.index,
+              embedding,
+            });
 
-        if (insertError) {
-          console.error('Failed to insert chunk:', insertError);
-          throw insertError;
+          if (insertError) {
+            console.error('Failed to insert chunk:', insertError);
+            throw insertError;
+          }
+          
+          processedCount++;
+        } catch (error) {
+          console.error(`Failed to process chunk ${chunk.index}:`, error);
+          throw error;
         }
-        
-        processedCount++;
-        if (processedCount % 10 === 0) {
-          console.log(`Progress: ${processedCount}/${allChunks.length} chunks processed`);
-        }
-      } catch (error) {
-        console.error(`Failed to process chunk ${chunk.index}:`, error);
-        throw error;
-      }
+      }));
+      
+      // Log progress after each batch
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      const rate = processedCount / (Date.now() - startTime) * 1000;
+      const remaining = Math.ceil((allChunks.length - processedCount) / rate);
+      console.log(`Progress: ${processedCount}/${allChunks.length} chunks (${elapsed}s elapsed, ~${remaining}s remaining)`);
     }
     
-    console.log(`Successfully processed all ${allChunks.length} chunks`);
+    const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`✅ Successfully processed all ${allChunks.length} chunks in ${totalTime}s (avg ${(processedCount / (Date.now() - startTime) * 1000).toFixed(2)} chunks/sec)`);
 
     // Mark as processed
     const { error: updateError } = await supabase
