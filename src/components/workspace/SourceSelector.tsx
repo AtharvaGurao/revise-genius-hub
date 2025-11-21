@@ -238,14 +238,16 @@ const SourceSelector = ({
       console.error("❌ Invalid response: not an object", data);
       return false;
     }
-    if (!Array.isArray(data.videos)) {
-      console.error("❌ Invalid response: videos is not an array", data);
+    // Check for recommendations.videos structure
+    if (!data.recommendations || !Array.isArray(data.recommendations.videos)) {
+      console.error("❌ Invalid response: recommendations.videos is not an array", data);
       return false;
     }
-    const isValid = data.videos.every((video: any) => 
-      video.video_title && 
+    // Validate each video has required fields
+    const isValid = data.recommendations.videos.every((video: any) => 
+      video.title && 
       video.channel_name && 
-      video.thumbnail && 
+      video.thumbnail_url && 
       video.video_url && 
       video.embed_url
     );
@@ -336,11 +338,24 @@ const SourceSelector = ({
         throw new Error("Invalid webhook response format");
       }
       
-      console.log(`✅ Received ${webhookData.videos.length} video recommendations`);
+      console.log(`✅ Received ${webhookData.recommendations.videos.length} video recommendations`);
       
-      // Store the webhook response for YouTubeRecommender
-      localStorage.setItem('youtube-webhook-data', JSON.stringify(webhookData));
-      console.log("💾 Stored in localStorage");
+      // Transform webhook data to match app's expected format
+      const transformedData = {
+        videos: webhookData.recommendations.videos.map((video: any) => ({
+          video_title: video.title,
+          channel_name: video.channel_name,
+          thumbnail: video.thumbnail_url,
+          description: video.description,
+          published_date: video.published_at,
+          video_url: video.video_url,
+          embed_url: video.embed_url
+        }))
+      };
+      
+      // Store the transformed response for YouTubeRecommender
+      localStorage.setItem('youtube-webhook-data', JSON.stringify(transformedData));
+      console.log("💾 Stored transformed data in localStorage");
       
       // Trigger a storage event for other components to react
       window.dispatchEvent(new Event('youtube-data-updated'));
@@ -348,7 +363,7 @@ const SourceSelector = ({
 
       toast({
         title: "Analysis complete!",
-        description: `Found ${webhookData.videos.length} video recommendations for "${pdf.title}".`,
+        description: `Found ${transformedData.videos.length} video recommendations for "${pdf.title}".`,
       });
       
       // Notify parent to switch to chat tab
