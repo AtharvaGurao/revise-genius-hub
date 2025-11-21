@@ -84,6 +84,23 @@ const QuizPanel = ({ selectedPdfId }: QuizPanelProps) => {
         return;
       }
 
+      // Check if PDF is processed before generating quiz
+      const { data: pdfData } = await supabase
+        .from('pdfs')
+        .select('processed, title')
+        .eq('id', selectedPdfId)
+        .single();
+
+      if (pdfData && !pdfData.processed) {
+        toast({
+          title: "PDF not ready",
+          description: `"${pdfData.title}" is still being processed. Please wait a moment and try again.`,
+          variant: "destructive",
+        });
+        setIsGenerating(false);
+        return;
+      }
+
       // Call quiz generation edge function
       const { data, error } = await supabase.functions.invoke('generate-quiz', {
         body: {

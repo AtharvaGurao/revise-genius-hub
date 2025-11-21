@@ -156,8 +156,37 @@ const SourceSelector = ({
 
       toast({
         title: "PDF uploaded successfully",
-        description: `"${newPdf.title}" is now available in your library.`,
+        description: `"${newPdf.title}" is being processed...`,
       });
+
+      // Trigger PDF processing in background
+      supabase.functions
+        .invoke('process-pdf', {
+          body: { pdfId: pdfData.id }
+        })
+        .then(({ data, error }) => {
+          if (error) {
+            console.error('PDF processing error:', error);
+            toast({
+              title: "Processing issue",
+              description: "PDF uploaded but text extraction had issues. You can still try generating quizzes.",
+              variant: "destructive",
+            });
+          } else {
+            console.log('PDF processed successfully:', data);
+            // Update the PDF status to processed
+            setPdfs((prev) =>
+              prev.map((p) => (p.id === pdfData.id ? { ...p } : p))
+            );
+            toast({
+              title: "PDF ready!",
+              description: `"${newPdf.title}" has been processed and is ready for quiz generation.`,
+            });
+          }
+        })
+        .catch((err) => {
+          console.error('PDF processing failed:', err);
+        });
       
       e.target.value = "";
     } catch (error: any) {
@@ -265,6 +294,18 @@ const SourceSelector = ({
     });
 
     try {
+      // First, ensure PDF is processed for quiz generation
+      if (!(pdf as any).processed) {
+        console.log("🔄 Triggering PDF processing...");
+        const { error: processError } = await supabase.functions.invoke('process-pdf', {
+          body: { pdfId: pdf.id }
+        });
+        
+        if (processError) {
+          console.warn("⚠️ PDF processing issue:", processError);
+        }
+      }
+
       // Get the PDF file from Supabase storage
       console.log("📥 Fetching PDF from storage...");
       const { data: pdfData } = await supabase
