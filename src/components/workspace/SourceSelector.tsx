@@ -269,7 +269,7 @@ const SourceSelector = ({
       const formData = new FormData();
       formData.append("file", fileBlob, `${pdf.title}.pdf`);
 
-      // Send to n8n webhook
+      // Send to primary n8n webhook
       const response = await fetch("https://n8n.srv1116237.hstgr.cloud/webhook/smartrevise", {
         method: "POST",
         body: formData,
@@ -278,6 +278,17 @@ const SourceSelector = ({
       if (!response.ok) {
         throw new Error(`Webhook returned status ${response.status}`);
       }
+
+      // Also send to analyze-pdf webhook
+      const formData2 = new FormData();
+      formData2.append("file", fileBlob, `${pdf.title}.pdf`);
+      
+      await fetch("https://n8n.srv1116237.hstgr.cloud/webhook-test/analyze-pdf", {
+        method: "POST",
+        body: formData2,
+      }).catch(err => {
+        console.warn("Secondary webhook failed:", err);
+      });
 
       toast({
         title: "PDF sent to webhook",
