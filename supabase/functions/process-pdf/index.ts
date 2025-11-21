@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import pdfParse from "https://esm.sh/pdf-parse@1.1.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -30,8 +31,6 @@ function chunkText(text: string, pageNumber: number, chunkSize = 1000): Array<{t
 
 // Generate embedding using Lovable AI
 async function generateEmbedding(text: string, apiKey: string): Promise<number[]> {
-  console.log('Generating embedding with Lovable AI...');
-  
   const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
     method: 'POST',
     headers: {
@@ -52,7 +51,6 @@ async function generateEmbedding(text: string, apiKey: string): Promise<number[]
   }
 
   const result = await response.json();
-  console.log('Embedding generated successfully');
   return result.data[0].embedding;
 }
 
@@ -75,6 +73,8 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    console.log(`Starting PDF processing for ID: ${pdfId}`);
+
     // Get PDF metadata
     const { data: pdfData, error: pdfError } = await supabase
       .from('pdfs')
@@ -86,6 +86,8 @@ serve(async (req) => {
       throw new Error('PDF not found');
     }
 
+    console.log(`Processing PDF: ${pdfData.title} (${pdfData.pages} pages)`);
+
     // Download PDF from storage
     const { data: fileData, error: downloadError } = await supabase.storage
       .from('pdfs')
@@ -95,75 +97,35 @@ serve(async (req) => {
       throw new Error('Failed to download PDF');
     }
 
-    // Convert to base64 efficiently (avoid stack overflow on large files)
+    // Convert to buffer for pdf-parse
     const buffer = await fileData.arrayBuffer();
-    const uint8Array = new Uint8Array(buffer);
-    
-    // Convert to base64 in chunks to avoid stack overflow
-    let base64 = '';
-    const chunkSize = 0x8000; // 32KB chunks
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
-      base64 += btoa(String.fromCharCode.apply(null, Array.from(chunk)));
-    }
-
     console.log(`PDF size: ${(buffer.byteLength / 1024 / 1024).toFixed(2)}MB`);
 
-    // Send to Lovable AI to extract text with page numbers
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: `Extract ALL text content from this PDF. For each page, format as: "PAGE X: [content]". Be thorough and extract everything.`
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:application/pdf;base64,${base64}`
-                }
-              }
-            ]
-          }
-        ],
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('AI API error:', aiResponse.status, errorText);
-      
-      if (aiResponse.status === 429) {
-        throw new Error('Rate limit exceeded. Please try again in a moment.');
-      } else if (aiResponse.status === 402) {
-        throw new Error('Insufficient AI credits. Please add credits to continue.');
-      }
-      
-      throw new Error(`AI processing failed: ${aiResponse.status} - ${errorText}`);
+    // Parse PDF to extract text using pdf-parse
+    console.log('Extracting text from PDF using pdf-parse...');
+    const uint8Array = new Uint8Array(buffer);
+    const pdfData_parsed = await pdfParse(uint8Array);
+    
+    if (!pdfData_parsed.text || pdfData_parsed.text.trim().length === 0) {
+      console.warn('No text content extracted from PDF');
+      throw new Error('No text content found in PDF. The file may be empty or contain only images.');
     }
 
-    const aiResult = await aiResponse.json();
-    const extractedText = aiResult.choices[0].message.content;
+    console.log(`Extracted ${pdfData_parsed.text.length} characters from ${pdfData_parsed.numpages} pages`);
 
-    // Parse text by pages
-    const pageRegex = /PAGE (\d+):([\s\S]*?)(?=PAGE \d+:|$)/gi;
-    const matches = [...extractedText.matchAll(pageRegex)];
+    // For simplicity, we'll estimate page breaks by splitting text evenly
+    // (pdf-parse doesn't provide page-by-page text, so we estimate)
+    const totalChars = pdfData_parsed.text.length;
+    const charsPerPage = Math.ceil(totalChars / pdfData_parsed.numpages);
     
     let allChunks: Array<{text: string, page: number, index: number}> = [];
     let chunkIndex = 0;
 
-    for (const match of matches) {
-      const pageNum = parseInt(match[1]);
-      const pageText = match[2].trim();
+    // Split text into page-sized sections and chunk each section
+    for (let pageNum = 1; pageNum <= pdfData_parsed.numpages; pageNum++) {
+      const startChar = (pageNum - 1) * charsPerPage;
+      const endChar = Math.min(pageNum * charsPerPage, totalChars);
+      const pageText = pdfData_parsed.text.slice(startChar, endChar).trim();
       
       if (pageText) {
         const chunks = chunkText(pageText, pageNum);
@@ -172,11 +134,11 @@ serve(async (req) => {
     }
 
     if (allChunks.length === 0) {
-      console.warn('No text content extracted from PDF');
-      throw new Error('No text content found in PDF. The file may be empty or contain only images.');
+      console.warn('No chunks created from PDF text');
+      throw new Error('Failed to create text chunks from PDF.');
     }
 
-    console.log(`Created ${allChunks.length} chunks from ${matches.length} pages`);
+    console.log(`Created ${allChunks.length} chunks from ${pdfData_parsed.numpages} pages`);
 
     // Process embeddings in parallel batches for 5-8x speed improvement
     console.log(`Generating embeddings for ${allChunks.length} chunks with parallel processing...`);
@@ -249,16 +211,6 @@ serve(async (req) => {
     );
   } catch (error: any) {
     console.error('Process PDF error:', error);
-    
-    // Try to mark PDF as failed (keep processed=false so user can retry)
-    if (req.method === 'POST') {
-      try {
-        const { pdfId } = await req.json();
-        console.log(`Marking PDF ${pdfId} processing as failed`);
-      } catch (e) {
-        console.error('Could not extract pdfId from failed request');
-      }
-    }
     
     return new Response(
       JSON.stringify({ 
