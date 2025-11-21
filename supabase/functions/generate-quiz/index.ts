@@ -25,17 +25,38 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get PDF context
-    let pdfContext = 'NCERT textbooks for Indian Class XI-XII';
+    // Get PDF content from chunks
+    let pdfContent = '';
+    let pdfTitles = 'the selected documents';
+    
     if (scope === 'selected' && pdfIds && pdfIds.length > 0) {
+      // Get PDF titles
       const { data: pdfs } = await supabase
         .from('pdfs')
         .select('title')
         .in('id', pdfIds);
       
       if (pdfs && pdfs.length > 0) {
-        pdfContext = pdfs.map(p => p.title).join(', ');
+        pdfTitles = pdfs.map(p => p.title).join(', ');
       }
+
+      // Get actual PDF content from chunks
+      const { data: chunks } = await supabase
+        .from('pdf_chunks')
+        .select('chunk_text, page_number')
+        .in('pdf_id', pdfIds)
+        .order('pdf_id')
+        .order('page_number')
+        .order('chunk_index')
+        .limit(100); // Limit to first 100 chunks to avoid token limits
+      
+      if (chunks && chunks.length > 0) {
+        pdfContent = chunks.map(c => c.chunk_text).join('\n\n');
+      }
+    }
+
+    if (!pdfContent) {
+      throw new Error('No PDF content found. Please select a processed PDF.');
     }
 
     // Create prompt based on question types
@@ -59,19 +80,29 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: 'You are an expert NCERT exam question generator for Indian Class XI-XII students. Generate high-quality, exam-style questions.'
+            content: 'You are an expert question generator. You create exam-style questions based ONLY on the provided document content. Never use external knowledge or make assumptions beyond what is explicitly stated in the document.'
           },
           {
             role: 'user',
-            content: `Generate ${count} questions from "${pdfContext}". Types: ${selectedTypes}. 
+            content: `DOCUMENT CONTENT FROM "${pdfTitles}":
 
-For MCQs: Provide question, 4 options (A, B, C, D), correct answer, explanation, and topic.
-For SAQs: Provide question, model answer (2-3 sentences), and topic.
-For LAQs: Provide question, comprehensive answer (1 paragraph), and topic.
+${pdfContent}
 
-IMPORTANT: Each question must include a topic field identifying the subject area (e.g., "Physics - Mechanics", "Chemistry - Organic Reactions", "Biology - Cell Structure").
+---
 
-Make questions curriculum-aligned and exam-relevant.`
+TASK: Generate ${count} questions STRICTLY based on the content above. Types needed: ${selectedTypes}
+
+CRITICAL RULES:
+- Use ONLY information from the document content provided above
+- Do NOT use any external knowledge or information
+- Questions and answers must be directly verifiable from the text above
+- If the content doesn't support ${count} questions, generate as many as possible from available content
+
+For MCQs: Provide question, 4 options, correct answer (index 0-3), explanation citing the document, and topic.
+For SAQs: Provide question, model answer (2-3 sentences from document), and topic.
+For LAQs: Provide question, comprehensive answer (paragraph from document), and topic.
+
+Each question must include a topic field identifying the subject area from the document content.`
           }
         ],
         tools: [
