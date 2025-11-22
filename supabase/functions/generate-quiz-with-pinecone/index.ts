@@ -50,6 +50,16 @@ serve(async (req) => {
       }
     }
 
+    // Extract base filename (remove timestamp prefix if present)
+    let baseFileName = pdfFileName;
+    if (pdfFileName) {
+      // Remove timestamp prefix pattern (e.g., "1763733242490-" from "1763733242490-keph107.pdf")
+      baseFileName = pdfFileName.replace(/^\d+-/, '');
+      if (baseFileName !== pdfFileName) {
+        console.log('Extracted base filename:', baseFileName);
+      }
+    }
+
     // Step 1: Create embedding for the query using OpenAI
     console.log('Creating query embedding...');
     const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
@@ -75,65 +85,81 @@ serve(async (req) => {
     const queryVector = embeddingData.data[0].embedding;
     console.log('Query vector created, dimensions:', queryVector.length);
 
-    // Step 2: Query Pinecone for relevant chunks
-    console.log('Querying Pinecone...');
+    // Step 2: Query Pinecone for relevant chunks using two-stage approach
     const pineconeUrl = 'https://smartrag-lprvf87.svc.aped-4627-b74a.pinecone.io/query';
+    let matches: any[] = [];
     
-    const pineconeQuery: any = {
-      vector: queryVector,
-      topK: 15,
-      includeMetadata: true
-    };
-    console.log('🔍 DIAGNOSTIC MODE: Querying Pinecone WITHOUT filter to inspect metadata');
-    console.log('PDF File Name (will check later):', pdfFileName);
-
-    // DIAGNOSTIC: Temporarily removed filter to inspect metadata structure
-    // if (pdfFileName) {
-    //   pineconeQuery.filter = {
-    //     'file-name': { '$eq': pdfFileName }
-    //   };
-    //   console.log('Filtering by file-name:', pdfFileName);
-    // }
-
-    const pineconeResponse = await fetch(pineconeUrl, {
-      method: 'POST',
-      headers: {
-        'Api-Key': PINECONE_API_KEY,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(pineconeQuery),
-    });
-
-    if (!pineconeResponse.ok) {
-      const errorText = await pineconeResponse.text();
-      console.error('Pinecone error:', pineconeResponse.status, errorText);
+    // Stage 1: Try with base filename filter
+    if (baseFileName) {
+      console.log('Stage 1: Querying Pinecone with filename filter:', baseFileName);
       
-      // Fallback to title-based generation if Pinecone fails
-      console.log('Falling back to title-based generation...');
-      return await generateWithTitleOnly(pdfTitle, types, count, LOVABLE_API_KEY, corsHeaders);
+      const pineconeQuery = {
+        vector: queryVector,
+        topK: 15,
+        includeMetadata: true,
+        filter: {
+          'file-name': { '$eq': baseFileName }
+        }
+      };
+
+      const pineconeResponse = await fetch(pineconeUrl, {
+        method: 'POST',
+        headers: {
+          'Api-Key': PINECONE_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(pineconeQuery),
+      });
+
+      if (!pineconeResponse.ok) {
+        const errorText = await pineconeResponse.text();
+        console.error('Pinecone Stage 1 error:', pineconeResponse.status, errorText);
+      } else {
+        const pineconeData = await pineconeResponse.json();
+        matches = pineconeData.matches || [];
+        
+        if (matches.length > 0) {
+          console.log(`✅ Stage 1 success: Retrieved ${matches.length} chunks with filename filter`);
+        } else {
+          console.log('Stage 1 returned 0 chunks');
+        }
+      }
     }
 
-    const pineconeData = await pineconeResponse.json();
-    const matches = pineconeData.matches || [];
-    console.log(`Retrieved ${matches.length} chunks from Pinecone`);
+    // Stage 2: If no results, try semantic search without filter
+    if (matches.length === 0) {
+      console.log('Stage 2: Trying semantic search without filename filter...');
+      
+      const pineconeQuery = {
+        vector: queryVector,
+        topK: 15,
+        includeMetadata: true
+      };
 
-    // DIAGNOSTIC: Log first 3 chunks to discover metadata structure
-    if (matches.length > 0) {
-      console.log('\n========================================');
-      console.log('🔬 DIAGNOSTIC: Pinecone Metadata Structure');
-      console.log('========================================\n');
-      
-      matches.slice(0, 3).forEach((match: any, idx: number) => {
-        console.log(`\n--- CHUNK ${idx + 1} ---`);
-        console.log('ID:', match.id);
-        console.log('Score:', match.score);
-        console.log('Metadata Keys:', Object.keys(match.metadata || {}));
-        console.log('Full Metadata:');
-        console.log(JSON.stringify(match.metadata, null, 2));
-        console.log('---\n');
+      const pineconeResponse = await fetch(pineconeUrl, {
+        method: 'POST',
+        headers: {
+          'Api-Key': PINECONE_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(pineconeQuery),
       });
+
+      if (!pineconeResponse.ok) {
+        const errorText = await pineconeResponse.text();
+        console.error('Pinecone Stage 2 error:', pineconeResponse.status, errorText);
+        
+        // Fallback to title-based generation if both stages fail
+        console.log('Both stages failed, falling back to title-based generation...');
+        return await generateWithTitleOnly(pdfTitle, types, count, LOVABLE_API_KEY, corsHeaders);
+      }
+
+      const pineconeData = await pineconeResponse.json();
+      matches = pineconeData.matches || [];
       
-      console.log('========================================\n');
+      if (matches.length > 0) {
+        console.log(`✅ Stage 2 success: Retrieved ${matches.length} chunks via semantic search`);
+      }
     }
 
     if (matches.length === 0) {
