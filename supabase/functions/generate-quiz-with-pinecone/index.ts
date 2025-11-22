@@ -84,15 +84,16 @@ serve(async (req) => {
       topK: 15,
       includeMetadata: true
     };
-    console.log('Pinecone query config:', { topK: 15, hasFilter: !!pdfFileName });
+    console.log('🔍 DIAGNOSTIC MODE: Querying Pinecone WITHOUT filter to inspect metadata');
+    console.log('PDF File Name (will check later):', pdfFileName);
 
-    // Add file filter if we have a filename
-    if (pdfFileName) {
-      pineconeQuery.filter = {
-        'file-name': { '$eq': pdfFileName }
-      };
-      console.log('Filtering by file-name:', pdfFileName);
-    }
+    // DIAGNOSTIC: Temporarily removed filter to inspect metadata structure
+    // if (pdfFileName) {
+    //   pineconeQuery.filter = {
+    //     'file-name': { '$eq': pdfFileName }
+    //   };
+    //   console.log('Filtering by file-name:', pdfFileName);
+    // }
 
     const pineconeResponse = await fetch(pineconeUrl, {
       method: 'POST',
@@ -115,6 +116,25 @@ serve(async (req) => {
     const pineconeData = await pineconeResponse.json();
     const matches = pineconeData.matches || [];
     console.log(`Retrieved ${matches.length} chunks from Pinecone`);
+
+    // DIAGNOSTIC: Log first 3 chunks to discover metadata structure
+    if (matches.length > 0) {
+      console.log('\n========================================');
+      console.log('🔬 DIAGNOSTIC: Pinecone Metadata Structure');
+      console.log('========================================\n');
+      
+      matches.slice(0, 3).forEach((match: any, idx: number) => {
+        console.log(`\n--- CHUNK ${idx + 1} ---`);
+        console.log('ID:', match.id);
+        console.log('Score:', match.score);
+        console.log('Metadata Keys:', Object.keys(match.metadata || {}));
+        console.log('Full Metadata:');
+        console.log(JSON.stringify(match.metadata, null, 2));
+        console.log('---\n');
+      });
+      
+      console.log('========================================\n');
+    }
 
     if (matches.length === 0) {
       console.log('No chunks found, falling back to title-based generation...');
