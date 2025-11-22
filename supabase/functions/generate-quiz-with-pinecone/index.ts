@@ -85,6 +85,24 @@ serve(async (req) => {
     const queryVector = embeddingData.data[0].embedding;
     console.log('Query vector created, dimensions:', queryVector.length);
 
+    // Helper function to validate content relevance
+    const isContentRelevant = (chunks: any[], expectedTitle: string): boolean => {
+      const sampleText = chunks.slice(0, 5).map((m: any) => m.metadata?.text || '').join(' ').toLowerCase();
+      const titleLower = expectedTitle.toLowerCase();
+      
+      // Extract key terms from title
+      const titleTerms = titleLower.split(/\s+/).filter(t => t.length > 3);
+      
+      // Check if at least one significant term from title appears in content
+      const hasRelevantTerms = titleTerms.some(term => sampleText.includes(term));
+      
+      // Additional heuristic: check content length
+      const hasSubstantialContent = sampleText.length > 200;
+      
+      console.log('Content relevance check:', { hasRelevantTerms, hasSubstantialContent, titleTerms });
+      return hasRelevantTerms && hasSubstantialContent;
+    };
+
     // Step 2: Query Pinecone for relevant chunks using two-stage approach
     const pineconeUrl = 'https://smartrag-lprvf87.svc.aped-4627-b74a.pinecone.io/query';
     let matches: any[] = [];
@@ -120,6 +138,15 @@ serve(async (req) => {
         
         if (matches.length > 0) {
           console.log(`✅ Stage 1 success: Retrieved ${matches.length} chunks with filename filter`);
+          
+          // Validate content relevance
+          if (!isContentRelevant(matches, pdfTitle)) {
+            console.log('⚠️ Content validation failed - chunks don\'t match expected topic');
+            console.log('Discarding Stage 1 results, will try semantic search...');
+            matches = []; // Discard mismatched results
+          } else {
+            console.log('✅ Content validation passed - chunks are relevant');
+          }
         } else {
           console.log('Stage 1 returned 0 chunks');
         }
