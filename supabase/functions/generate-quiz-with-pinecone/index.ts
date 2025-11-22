@@ -80,11 +80,11 @@ serve(async (req) => {
     const pineconeUrl = 'https://smartrag-lprvf87.svc.aped-4627-b74a.pinecone.io/query';
     
     const pineconeQuery: any = {
-      namespace: '__default__',
       vector: queryVector,
       topK: 15,
       includeMetadata: true
     };
+    console.log('Pinecone query config:', { topK: 15, hasFilter: !!pdfFileName });
 
     // Add file filter if we have a filename
     if (pdfFileName) {
@@ -306,13 +306,23 @@ async function generateWithTitleOnly(
         },
         {
           role: 'user',
-          content: `Generate ${count} questions from "${pdfTitle}". Types: ${selectedTypes}. 
-          
+          content: `You are generating quiz questions for a student studying from "${pdfTitle}".
+This appears to be an NCERT textbook or educational material. Generate ${count} exam-style questions.
+
+Types needed: ${selectedTypes}
+
+IMPORTANT: 
+- If the title suggests a specific subject (like physics, chemistry, biology, mathematics), generate questions from that subject
+- Make questions relevant to typical NCERT curriculum topics for that subject
+- The PDF title may be a code name - infer the subject from context (e.g., "keph" likely refers to physics)
+- Do NOT generate generic questions about unrelated subjects
+- Focus on science and mathematics topics appropriate for secondary/senior secondary education
+
 For MCQs: Provide question, 4 options (A, B, C, D), correct answer, explanation, and topic.
 For SAQs: Provide question, model answer (2-3 sentences), and topic.
 For LAQs: Provide question, comprehensive answer (1 paragraph), and topic.
 
-Each question must include a topic field.`
+Each question must include a topic field identifying the subject area.`
         }
       ],
       tools: [
